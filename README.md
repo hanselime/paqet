@@ -88,16 +88,11 @@ You'll need to find your network interface name, local IP, and the MAC address o
 
 **On Windows:**
 
-1.  **Find Interface and Local IP:** Open Command Prompt or PowerShell and run `ipconfig /all`. Look for your active network adapter (e.g., "Ethernet adapter Ethernet", "Wi-Fi adapter Wi-Fi"). Note the "IPv4 Address".
-2.  **Find Interface Name:** Run `netsh interface show interface` to list interface names. Use the "Interface Name" column value (e.g., "Ethernet", "Wi-Fi").
-3.  **Find NPF Device GUID:** Windows requires the Npcap device GUID. Run this PowerShell command:
-    ```powershell
-    Get-NetAdapter | Select-Object Name, InterfaceGuid
-    ```
-    Copy the GUID for your adapter (e.g., `{12345678-....}`) and add it to your config as `guid: "{...}"`.
-4.  **Find Gateway MAC:**
-    - First, find your gateway's IP: `ipconfig /all` (look for "Default Gateway")
-    - Then, find its MAC address with `arp -a <gateway_ip>` (e.g., `arp -a 192.168.1.1`)
+1. **Find Interface and Local IP:** Run `ipconfig /all` and note your active network adapter (Ethernet or Wi-Fi), along with:
+   - Its **IPv4 Address**
+   - The **Gateway** IP
+2. **Find Interface device GUID:** Windows requires the Npcap device GUID. In PowerShell, run: `Get-NetAdapter | Select-Object Name, InterfaceGuid`: Note the **InterfaceGuid** of your active network interface. (Format it as: `\Device\NPF_{GUID}`)
+3. **Find Gateway MAC Address:** Run: `arp -a <gateway_ip>`. Note the MAC address for the gateway.
 
 #### Client Configuration - SOCKS5 Proxy Mode
 
@@ -120,7 +115,7 @@ socks5:
 # Network interface settings
 network:
   interface: "en0" # CHANGE ME: Network interface (en0, eth0, wlan0, etc.)
-  # guid: "{...}" # Windows only: NPF device GUID from Get-NetAdapter
+  # guid: "\Device\NPF_{...}" # Windows only (Npcap).
   ipv4:
     addr: "192.168.1.100:0" # CHANGE ME: Local IP (use port 0 for random port)
     router_mac: "aa:bb:cc:dd:ee:ff" # CHANGE ME: Gateway/router MAC address

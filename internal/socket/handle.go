@@ -11,12 +11,12 @@ import (
 func newHandle(cfg *conf.Network) (*pcap.Handle, error) {
 	// On Windows, use the GUID field to construct the NPF device name
 	// On other platforms, use the interface name directly
-	deviceName := cfg.Interface.Name
-	if runtime.GOOS == "windows" && cfg.GUID != "" {
-		deviceName = `\Device\NPF_` + cfg.GUID
+	ifaceName := cfg.Interface.Name
+	if runtime.GOOS == "windows" {
+		ifaceName = cfg.GUID
 	}
 
-	inactive, err := pcap.NewInactiveHandle(deviceName)
+	inactive, err := pcap.NewInactiveHandle(ifaceName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create inactive pcap handle for %s: %v", cfg.Interface.Name, err)
 	}

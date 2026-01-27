@@ -21,7 +21,7 @@ socks5:
 # Network interface settings
 network:
   interface: "en0"                          # CHANGE ME: Network interface (en0, eth0, wlan0, etc.)
-  # guid: "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"  # Windows only: NPF device GUID
+  # guid: "\Device\NPF_{...}"               # Windows only (Npcap).
   
   # IPv4 configuration
   ipv4:

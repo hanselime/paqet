@@ -3,6 +3,7 @@ package conf
 import (
 	"fmt"
 	"net"
+	"runtime"
 )
 
 type Addr struct {
@@ -14,7 +15,7 @@ type Addr struct {
 
 type Network struct {
 	Interface_ string         `yaml:"interface"`
-	GUID       string         `yaml:"guid"`  // Windows only: NPF device GUID (e.g., "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}")
+	GUID       string         `yaml:"guid"`
 	IPv4       Addr           `yaml:"ipv4"`
 	IPv6       Addr           `yaml:"ipv6"`
 	PCAP       PCAP           `yaml:"pcap"`
@@ -42,6 +43,10 @@ func (n *Network) validate() []error {
 		errors = append(errors, fmt.Errorf("failed to find network interface %s: %v", n.Interface_, err))
 	}
 	n.Interface = lIface
+
+	if runtime.GOOS == "windows" && n.GUID == "" {
+		errors = append(errors, fmt.Errorf("guid is required on windows"))
+	}
 
 	ipv4Configured := n.IPv4.Addr_ != ""
 	ipv6Configured := n.IPv6.Addr_ != ""
