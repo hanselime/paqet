@@ -90,16 +90,14 @@ You'll need to find your network interface name, local IP, and the MAC address o
 
 1.  **Find Interface and Local IP:** Open Command Prompt or PowerShell and run `ipconfig /all`. Look for your active network adapter (e.g., "Ethernet adapter Ethernet", "Wi-Fi adapter Wi-Fi"). Note the "IPv4 Address".
 2.  **Find Interface Name:** Run `netsh interface show interface` to list interface names. Use the "Interface Name" column value (e.g., "Ethernet", "Wi-Fi").
-3.  **Find Gateway MAC (use your router's MAC, NOT your adapter's MAC):**
-    - **PowerShell Method (Recommended):**
-      ```powershell
-      Get-NetRoute -DestinationPrefix "0.0.0.0/0" | Select-Object -First 1 | ForEach-Object { Get-NetNeighbor -IPAddress $_.NextHop -InterfaceIndex $_.InterfaceIndex | Select-Object IPAddress, LinkLayerAddress }
-      ```
-    - **Alternative Method:**
-      - First, find your gateway's IP: `ipconfig /all` (look for "Default Gateway")
-      - Then, find its MAC address with `arp -a <gateway_ip>` (e.g., `arp -a 192.168.1.1`)
-
-> **⚠️ Common Mistake:** Make sure to use your **gateway/router's MAC address**, not your network adapter's MAC address. See [GATEWAY_MAC_SETUP.md](GATEWAY_MAC_SETUP.md) for detailed instructions.
+3.  **Find NPF Device GUID:** Windows requires the Npcap device GUID. Run this PowerShell command:
+    ```powershell
+    Get-NetAdapter | Select-Object Name, InterfaceGuid
+    ```
+    Copy the GUID for your adapter (e.g., `{12345678-....}`) and add it to your config as `guid: "{...}"`.
+4.  **Find Gateway MAC:**
+    - First, find your gateway's IP: `ipconfig /all` (look for "Default Gateway")
+    - Then, find its MAC address with `arp -a <gateway_ip>` (e.g., `arp -a 192.168.1.1`)
 
 #### Client Configuration - SOCKS5 Proxy Mode
 
@@ -122,6 +120,7 @@ socks5:
 # Network interface settings
 network:
   interface: "en0" # CHANGE ME: Network interface (en0, eth0, wlan0, etc.)
+  # guid: "{...}" # Windows only: NPF device GUID from Get-NetAdapter
   ipv4:
     addr: "192.168.1.100:0" # CHANGE ME: Local IP (use port 0 for random port)
     router_mac: "aa:bb:cc:dd:ee:ff" # CHANGE ME: Gateway/router MAC address

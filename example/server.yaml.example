@@ -13,6 +13,7 @@ listen:
 # Network interface settings
 network:
   interface: "eth0"                          # CHANGE ME: Network interface (eth0, ens3, en0, etc.)
+  # guid: "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}"  # Windows only: NPF device GUID
   
   # IPv4 configuration
   ipv4:

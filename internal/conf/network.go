@@ -3,7 +3,6 @@ package conf
 import (
 	"fmt"
 	"net"
-	"runtime"
 )
 
 type Addr struct {
@@ -15,6 +14,7 @@ type Addr struct {
 
 type Network struct {
 	Interface_ string         `yaml:"interface"`
+	GUID       string         `yaml:"guid"`  // Windows only: NPF device GUID (e.g., "{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}")
 	IPv4       Addr           `yaml:"ipv4"`
 	IPv6       Addr           `yaml:"ipv6"`
 	PCAP       PCAP           `yaml:"pcap"`
@@ -34,9 +34,7 @@ func (n *Network) validate() []error {
 	if n.Interface_ == "" {
 		errors = append(errors, fmt.Errorf("network interface is required"))
 	}
-	// On Windows, pcap device names include GUIDs and can be very long
-	// On Linux/macOS, interface names are short (eth0, wlan0, en0, etc.)
-	if runtime.GOOS != "windows" && len(n.Interface_) > 15 {
+	if len(n.Interface_) > 15 {
 		errors = append(errors, fmt.Errorf("network interface name too long (max 15 characters): '%s'", n.Interface_))
 	}
 	lIface, err := net.InterfaceByName(n.Interface_)
