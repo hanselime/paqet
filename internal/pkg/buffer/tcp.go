@@ -4,7 +4,8 @@ import (
 	"io"
 )
 
-func Copy(dst, src io.ReadWriter) error {
+// copies data from src to dst using a pooled buffer
+func Copy(dst io.Writer, src io.Reader) error {
 	bufp := tPool.Get().(*[]byte)
 	defer tPool.Put(bufp)
 	buf := *bufp
