@@ -4,7 +4,6 @@ import (
 	"log"
 	"paqet/internal/conf"
 	"paqet/internal/flog"
-	"paqet/internal/pkg/buffer"
 
 	"github.com/spf13/cobra"
 )
@@ -41,5 +40,4 @@ var Cmd = &cobra.Command{
 
 func initialize(cfg *conf.Conf) {
 	flog.SetLevel(cfg.Log.Level)
-	buffer.Initialize()
 }
