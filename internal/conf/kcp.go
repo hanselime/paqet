@@ -85,11 +85,11 @@ func (k *KCP) validate() []error {
 		errors = append(errors, fmt.Errorf("KCP sndwnd must be between 1-32768"))
 	}
 
-	validBlocks := []string{"aes", "aes-128", "aes-128-gcm", "aes-192", "salsa20", "blowfish", "twofish", "cast5", "3des", "tea", "xtea", "xor", "sm4", "none"}
+	validBlocks := []string{"aes", "aes-128", "aes-128-gcm", "aes-192", "salsa20", "blowfish", "twofish", "cast5", "3des", "tea", "xtea", "xor", "sm4", "none", "null"}
 	if !slices.Contains(validBlocks, k.Block_) {
 		errors = append(errors, fmt.Errorf("KCP encryption block must be one of: %v", validBlocks))
 	}
-	if !slices.Contains([]string{"none"}, k.Block_) && len(k.Key) == 0 {
+	if !slices.Contains([]string{"none", "null"}, k.Block_) && len(k.Key) == 0 {
 		errors = append(errors, fmt.Errorf("KCP encryption key is required"))
 	}
 	b, err := newBlock(k.Block_, k.Key)

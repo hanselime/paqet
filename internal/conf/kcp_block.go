@@ -28,6 +28,7 @@ var blockCrypts = map[string]blockCrypt{
 	"xor":         {0, func(key []byte) (kcp.BlockCrypt, error) { return kcp.NewSimpleXORBlockCrypt(key) }},
 	"sm4":         {16, func(key []byte) (kcp.BlockCrypt, error) { return kcp.NewSM4BlockCrypt(key) }},
 	"none":        {0, func(key []byte) (kcp.BlockCrypt, error) { return kcp.NewNoneBlockCrypt(key) }},
+	"null":        {0, func(key []byte) (kcp.BlockCrypt, error) { return nil, nil }},
 }
 
 func newBlock(block, key string) (kcp.BlockCrypt, error) {

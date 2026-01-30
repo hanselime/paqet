@@ -248,6 +248,16 @@ paqet uses a unified YAML configuration that works for both clients and servers.
 - [`example/client.yaml.example`](example/client.yaml.example) - Client configuration reference
 - [`example/server.yaml.example`](example/server.yaml.example) - Server configuration reference
 
+### Encryption Modes
+
+The `transport.kcp.block` parameter determines the encryption method. There are two special modes to disable encryption:
+
+**`none`** (Plaintext with Header)
+No encryption is applied, but a protocol header is still present. The packet format remains compatible with encrypted modes, but the content is plaintext. This helps with protocol compatibility.
+
+**`null`** (Raw Data)
+No encryption and no protocol header, data is transmitted in raw form without any cryptographic framing. This offers the highest performance but is the least secure and most easily identified.
+
 ### Critical Configuration Points
 
 **Transport Security:** KCP requires identical keys on client/server (use `secret` command to generate).
