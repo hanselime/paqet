@@ -1,4 +1,4 @@
-package kcp
+package conf
 
 import (
 	"crypto/sha256"

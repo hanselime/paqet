@@ -17,11 +17,7 @@ type Listener struct {
 }
 
 func Listen(cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Listener, error) {
-	block, err := newBlock(cfg.Block, cfg.Key)
-	if err != nil {
-		return nil, err
-	}
-	l, err := kcp.ServeConn(block, cfg.Dshard, cfg.Pshard, pConn)
+	l, err := kcp.ServeConn(cfg.Block, cfg.Dshard, cfg.Pshard, pConn)
 	if err != nil {
 		return nil, err
 	}
