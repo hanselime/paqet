@@ -30,11 +30,11 @@ func (s *Server) handleTCP(ctx context.Context, strm tnet.Strm, addr string) err
 
 	errChan := make(chan error, 2)
 	go func() {
-		err := buffer.Copy(conn, strm)
+		err := buffer.CopyT(conn, strm)
 		errChan <- err
 	}()
 	go func() {
-		err := buffer.Copy(strm, conn)
+		err := buffer.CopyT(strm, conn)
 		errChan <- err
 	}()
 

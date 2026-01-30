@@ -4,22 +4,15 @@ import (
 	"io"
 	"net"
 	"paqet/internal/flog"
-	"sync"
+	"paqet/internal/pkg/buffer"
 	"time"
 
 	"github.com/txthinking/socks5"
 )
 
-var uPool = sync.Pool{
-	New: func() any {
-		b := make([]byte, 32*1024)
-		return &b
-	},
-}
-
 func (h *Handler) UDPHandle(server *socks5.Server, addr *net.UDPAddr, d *socks5.Datagram) error {
-	bufp := uPool.Get().(*[]byte)
-	defer uPool.Put(bufp)
+	bufp := buffer.UPool.Get().(*[]byte)
+	defer buffer.UPool.Put(bufp)
 	buf := *bufp
 	strm, new, k, err := h.client.UDP(addr.String(), d.Address())
 	if err != nil {

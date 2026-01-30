@@ -2,16 +2,13 @@ package buffer
 
 import (
 	"io"
-	"net"
 )
 
-// reads from dst and writes to src UDP address using provided buffer
-func CopyU(dst io.ReadWriter, src *net.UDPConn, addr *net.UDPAddr, buf []byte) error {
-	n, err := dst.Read(buf)
-	if err != nil {
-		return err
-	}
+func CopyU(dst io.Writer, src io.Reader) error {
+	bufp := UPool.Get().(*[]byte)
+	defer UPool.Put(bufp)
+	buf := *bufp
 
-	_, err = src.WriteToUDP(buf[:n], addr)
+	_, err := io.CopyBuffer(dst, src, buf)
 	return err
 }

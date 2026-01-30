@@ -60,11 +60,11 @@ func (h *Handler) handleTCPConnect(conn *net.TCPConn, r *socks5.Request) error {
 
 	errCh := make(chan error, 2)
 	go func() {
-		err := buffer.Copy(conn, strm)
+		err := buffer.CopyT(conn, strm)
 		errCh <- err
 	}()
 	go func() {
-		err := buffer.Copy(strm, conn)
+		err := buffer.CopyT(strm, conn)
 		errCh <- err
 	}()
 

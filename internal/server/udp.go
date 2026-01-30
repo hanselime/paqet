@@ -28,11 +28,11 @@ func (s *Server) handleUDP(ctx context.Context, strm tnet.Strm, addr string) err
 
 	errChan := make(chan error, 2)
 	go func() {
-		err := buffer.Copy(conn, strm)
+		err := buffer.CopyU(conn, strm)
 		errChan <- err
 	}()
 	go func() {
-		err := buffer.Copy(strm, conn)
+		err := buffer.CopyU(strm, conn)
 		errChan <- err
 	}()
 
