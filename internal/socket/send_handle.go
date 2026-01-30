@@ -2,18 +2,14 @@ package socket
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"net"
 	"paqet/internal/conf"
-	"paqet/internal/flog"
 	"paqet/internal/pkg/hash"
 	"paqet/internal/pkg/iterator"
 	"runtime"
-	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -207,30 +203,7 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, tcpLayer, gopacket.Payload(payload)); err != nil {
 		return err
 	}
-
-	// Retry on ENOBUFS (OS transmit queue overflow)
-	data := buf.Bytes()
-	for i := 0; i < 3; i++ {
-		err := h.handle.WritePacketData(data)
-		if err == nil {
-			return nil
-		}
-		if !isENOBUFS(err) {
-			return err
-		}
-		flog.Warnf("ENOBUFS on packet write to %s, retrying (%d/3)", addr, i+1)
-		time.Sleep(5 * time.Millisecond)
-	}
-	return h.handle.WritePacketData(data)
-}
-
-// checks if the error is caused by buffer space exhaustion
-func isENOBUFS(err error) bool {
-	if errors.Is(err, syscall.ENOBUFS) {
-		return true
-	}
-	// libpcap may wrap the error as a string
-	return strings.Contains(err.Error(), "No buffer space available")
+	return h.handle.WritePacketData(buf.Bytes())
 }
 
 func (h *SendHandle) getClientTCPF(dstIP net.IP, dstPort uint16) conf.TCPF {
