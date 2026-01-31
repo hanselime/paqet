@@ -1,7 +1,6 @@
 package client
 
 import (
-	"net"
 	"paqet/internal/flog"
 	"paqet/internal/pkg/hash"
 	"paqet/internal/protocol"
@@ -24,7 +23,7 @@ func (c *Client) UDP(lAddr, tAddr string) (tnet.Strm, bool, uint64, error) {
 		return nil, false, 0, err
 	}
 
-	taddr, err := net.ResolveUDPAddr("udp", tAddr)
+	taddr, err := protocol.NewAddr(tAddr)
 	if err != nil {
 		flog.Debugf("invalid UDP address %s: %v", tAddr, err)
 		strm.Close()

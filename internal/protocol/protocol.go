@@ -3,7 +3,6 @@ package protocol
 import (
 	"encoding/gob"
 	"io"
-	"net"
 	"paqet/internal/conf"
 )
 
@@ -19,7 +18,7 @@ const (
 
 type Proto struct {
 	Type PType
-	Addr *net.UDPAddr
+	Addr *Addr
 	TCPF []conf.TCPF
 }
 
