@@ -23,7 +23,7 @@ func (c *Client) UDP(lAddr, tAddr string) (tnet.Strm, bool, uint64, error) {
 		return nil, false, 0, err
 	}
 
-	taddr, err := protocol.NewAddr(tAddr)
+	taddr, err := tnet.NewAddr(tAddr)
 	if err != nil {
 		flog.Debugf("invalid UDP address %s: %v", tAddr, err)
 		strm.Close()

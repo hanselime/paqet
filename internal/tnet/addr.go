@@ -1,4 +1,4 @@
-package protocol
+package tnet
 
 import (
 	"fmt"

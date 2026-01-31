@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"io"
 	"paqet/internal/conf"
+	"paqet/internal/tnet"
 )
 
 type PType = byte
@@ -18,7 +19,7 @@ const (
 
 type Proto struct {
 	Type PType
-	Addr *Addr
+	Addr *tnet.Addr
 	TCPF []conf.TCPF
 }
 

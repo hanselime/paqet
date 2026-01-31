@@ -13,7 +13,7 @@ func (c *Client) TCP(addr string) (tnet.Strm, error) {
 		return nil, err
 	}
 
-	tAddr, err := protocol.NewAddr(addr)
+	tAddr, err := tnet.NewAddr(addr)
 	if err != nil {
 		flog.Debugf("invalid TCP address %s: %v", addr, err)
 		strm.Close()
