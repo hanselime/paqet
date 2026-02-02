@@ -24,20 +24,22 @@ type TCPF struct {
 }
 
 type SendHandle struct {
-	handle     *pcap.Handle
-	srcIP4     conf.Addr
-	srcIP6     conf.Addr
-	srcPort    uint16
-	synOptions []layers.TCPOption
-	ackOptions []layers.TCPOption
-	time       uint32
-	tsCounter  uint32
-	tcpF       TCPF
-	ethPool    sync.Pool
-	ipv4Pool   sync.Pool
-	ipv6Pool   sync.Pool
-	tcpPool    sync.Pool
-	bufPool    sync.Pool
+	handle      *pcap.Handle
+	srcIPv4     net.IP
+	srcIPv4RHWA net.HardwareAddr
+	srcIPv6     net.IP
+	srcIPv6RHWA net.HardwareAddr
+	srcPort     uint16
+	synOptions  []layers.TCPOption
+	ackOptions  []layers.TCPOption
+	time        uint32
+	tsCounter   uint32
+	tcpF        TCPF
+	ethPool     sync.Pool
+	ipv4Pool    sync.Pool
+	ipv6Pool    sync.Pool
+	tcpPool     sync.Pool
+	bufPool     sync.Pool
 }
 
 func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
@@ -69,8 +71,6 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 
 	sh := &SendHandle{
 		handle:     handle,
-		srcIP4:     cfg.IPv4,
-		srcIP6:     cfg.IPv6,
 		srcPort:    uint16(cfg.Port),
 		synOptions: synOptions,
 		ackOptions: ackOptions,
@@ -102,6 +102,14 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 			},
 		},
 	}
+	if cfg.IPv4.Addr != nil {
+		sh.srcIPv4 = cfg.IPv4.Addr.IP
+		sh.srcIPv4RHWA = cfg.IPv4.Router
+	}
+	if cfg.IPv6.Addr != nil {
+		sh.srcIPv6 = cfg.IPv6.Addr.IP
+		sh.srcIPv6RHWA = cfg.IPv6.Router
+	}
 	return sh, nil
 }
 
@@ -114,7 +122,7 @@ func (h *SendHandle) buildIPv4Header(dstIP net.IP) *layers.IPv4 {
 		TTL:      64,
 		Flags:    layers.IPv4DontFragment,
 		Protocol: layers.IPProtocolTCP,
-		SrcIP:    h.srcIP4.Addr.IP,
+		SrcIP:    h.srcIPv4,
 		DstIP:    dstIP,
 	}
 	return ip
@@ -127,7 +135,7 @@ func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
 		TrafficClass: 184,
 		HopLimit:     64,
 		NextHeader:   layers.IPProtocolTCP,
-		SrcIP:        h.srcIP6.Addr.IP,
+		SrcIP:        h.srcIPv6,
 		DstIP:        dstIP,
 	}
 	return ip
@@ -188,14 +196,14 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 		defer h.ipv4Pool.Put(ip)
 		ipLayer = ip
 		tcpLayer.SetNetworkLayerForChecksum(ip)
-		ethLayer.DstMAC = h.srcIP4.Router.HardwareAddr
+		ethLayer.DstMAC = h.srcIPv4RHWA
 		ethLayer.EthernetType = layers.EthernetTypeIPv4
 	} else {
 		ip := h.buildIPv6Header(dstIP)
 		defer h.ipv6Pool.Put(ip)
 		ipLayer = ip
 		tcpLayer.SetNetworkLayerForChecksum(ip)
-		ethLayer.DstMAC = h.srcIP6.Router.HardwareAddr
+		ethLayer.DstMAC = h.srcIPv6RHWA
 		ethLayer.EthernetType = layers.EthernetTypeIPv6
 	}
 

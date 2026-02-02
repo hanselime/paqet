@@ -7,10 +7,10 @@ import (
 )
 
 type Addr struct {
-	Addr_      string         `yaml:"addr"`
-	RouterMac_ string         `yaml:"router_mac"`
-	Addr       net.UDPAddr    `yaml:"-"`
-	Router     *net.Interface `yaml:"-"`
+	Addr_      string           `yaml:"addr"`
+	RouterMac_ string           `yaml:"router_mac"`
+	Addr       *net.UDPAddr     `yaml:"-"`
+	Router     net.HardwareAddr `yaml:"-"`
 }
 
 type Network struct {
@@ -65,19 +65,17 @@ func (n *Network) validate() []error {
 			errors = append(errors, fmt.Errorf("IPv4 port (%d) and IPv6 port (%d) must match when both are configured", n.IPv4.Addr.Port, n.IPv6.Addr.Port))
 		}
 	}
-	n.Port = n.PrimaryAddr().Port
+	if n.IPv4.Addr != nil {
+		n.Port = n.IPv4.Addr.Port
+	}
+	if n.IPv6.Addr != nil {
+		n.Port = n.IPv6.Addr.Port
+	}
 
 	errors = append(errors, n.PCAP.validate()...)
 	errors = append(errors, n.TCP.validate()...)
 
 	return errors
-}
-
-func (n *Network) PrimaryAddr() net.UDPAddr {
-	if n.IPv4.Addr_ != "" {
-		return n.IPv4.Addr
-	}
-	return n.IPv6.Addr
 }
 
 func (n *Addr) validate() []error {
@@ -86,19 +84,18 @@ func (n *Addr) validate() []error {
 	l, err := validateAddr(n.Addr_, false)
 	if err != nil {
 		errors = append(errors, err)
-	} else {
-		n.Addr = *l
 	}
+	n.Addr = l
 
 	if n.RouterMac_ == "" {
-		errors = append(errors, fmt.Errorf("MAC address is required"))
+		errors = append(errors, fmt.Errorf("Router MAC address is required"))
 	}
 
 	hwAddr, err := net.ParseMAC(n.RouterMac_)
 	if err != nil {
-		errors = append(errors, fmt.Errorf("invalid MAC address '%s': %v", n.RouterMac_, err))
+		errors = append(errors, fmt.Errorf("invalid Router MAC address '%s': %v", n.RouterMac_, err))
 	}
-	n.Router = &net.Interface{HardwareAddr: hwAddr}
+	n.Router = hwAddr
 
 	return errors
 }

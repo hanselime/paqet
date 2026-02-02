@@ -45,6 +45,14 @@ func (c *Client) Start(ctx context.Context) error {
 		flog.Infof("client shutdown complete")
 	}()
 
-	flog.Infof("Client started: IPv4:%s IPv6:%s -> %s (%d connections)", c.cfg.Network.IPv4.Addr.IP, c.cfg.Network.IPv6.Addr.IP, c.cfg.Server.Addr, len(c.iter.Items))
+	ipv4Addr := "<nil>"
+	ipv6Addr := "<nil>"
+	if c.cfg.Network.IPv4.Addr != nil {
+		ipv4Addr = c.cfg.Network.IPv4.Addr.IP.String()
+	}
+	if c.cfg.Network.IPv6.Addr != nil {
+		ipv6Addr = c.cfg.Network.IPv6.Addr.IP.String()
+	}
+	flog.Infof("Client started: IPv4:%s IPv6:%s -> %s (%d connections)", ipv4Addr, ipv6Addr, c.cfg.Server.Addr, len(c.iter.Items))
 	return nil
 }

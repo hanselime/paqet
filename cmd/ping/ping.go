@@ -41,7 +41,7 @@ func sendPacket() {
 	}
 	defer sendHandle.Close()
 
-	log.Printf("Sending packet from IPv4:%s IPv6:%s to %s via %s...", cfg.Network.IPv4.Addr.IP, cfg.Network.IPv6.Addr.IP, cfg.Server.Addr.String(), cfg.Network.Interface.Name)
+	log.Printf("Sending packet from IPv4:%s IPv6:%s to %s via %s...", cfg.Network.IPv4.Addr, cfg.Network.IPv6.Addr, cfg.Server.Addr.String(), cfg.Network.Interface.Name)
 	log.Printf("Payload: \"%s\" (%d bytes)", payload, len(payload))
 
 	if err := sendHandle.Write([]byte(payload), cfg.Server.Addr); err != nil {
