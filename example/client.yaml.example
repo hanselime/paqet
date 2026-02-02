@@ -22,24 +22,24 @@ socks5:
 network:
   interface: "en0"                          # CHANGE ME: Network interface (en0, eth0, wlan0, etc.)
   # guid: "\Device\NPF_{...}"               # Windows only (Npcap).
-  
+
   # IPv4 configuration
   ipv4:
     addr: "192.168.1.100:0"                 # CHANGE ME: Local IP (use port 0 for random port)
     router_mac: "aa:bb:cc:dd:ee:ff"         # CHANGE ME: Gateway/router MAC address
-  
+
   # IPv6 configuration (optional)
   ipv6:
     addr: "[2001:db8::1]:0"                 # CHANGE ME: Local IPv6 address and port (optional)
     router_mac: "aa:bb:cc:dd:ee:ff"         # CHANGE ME: Gateway/router MAC address for IPv6
-  
+
   tcp:
     local_flag: ["PA"]                      # Local TCP flags (Push+Ack default)
     remote_flag: ["PA"]                     # Remote TCP flags (Push+Ack default)
-  
+
   # PCAP settings (optional - will use defaults)
-  pcap:
-    sockbuf: 4194304                        # 4MB buffer (default for client)
+  # pcap:
+    # sockbuf: 4194304                        # 4MB buffer (default for client)
 
 # Server connection settings
 server:
@@ -49,21 +49,49 @@ server:
 transport:
   protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
   conn: 1          # Number of connections (1-256, default: 1)
-  
+
   # KCP protocol settings
   kcp:
-    mode: "fast"           # KCP mode: normal, fast, fast2, fast3
-    mtu: 1350              # Maximum transmission unit (50-1500)
-    rcvwnd: 512            # Receive window size (default for client)  
-    sndwnd: 512            # Send window size (default for client)
-    
+    mode: "fast"            # KCP mode: normal, fast, fast2, fast3, manual
+
+    # Manual mode parameters (only used when mode="manual")
+    # nodelay: 1              # 0=disable, 1=enable
+                              # Enable for lower latency & aggressive retransmission
+                              # Disable for TCP-like conservative behavior
+                  
+    # interval: 10            # Internal update timer interval in milliseconds (10-5000ms)
+                              # Lower values increase responsiveness but raise CPU usage
+
+    # resend: 2               # Fast retransmit trigger (0-2)
+                              # 0 = disabled (wait for timeout)
+                              # 1 = fast retransmit after 1 skipped ACK
+                              # 2 = very fast retransmit after 2 skipped ACKs (recommended for lossy networks)
+
+    # nocongestion: 1         # Congestion control: 0=enabled, 1=disabled
+                              # 0 = TCP-like fair congestion control (slow start, congestion avoidance)
+                              # 1 = disable congestion control for maximum speed
+
+    # wdelay: false           # Write batching behavior
+                              # false = flush immediately (low latency, recommended for real-time)
+                              # true = batch writes until next update interval (higher throughput)
+                              # Controls when data is actually sent to the network
+
+    # acknodelay: true        # ACK sending behavior
+                              # true = send ACKs immediately when packets are received (lower latency)
+                              # false = batch ACKs (more bandwidth efficient)
+                              # Setting true reduces latency but increases bandwidth usage
+
+    # mtu: 1350              # Maximum transmission unit (50-1500)
+    # rcvwnd: 512            # Receive window size (default for client)  
+    # sndwnd: 512            # Send window size (default for client)
+
     # Encryption settings
-    block: "aes"                    # Encryption: aes, aes-128, aes-128-gcm, aes-192, salsa20, blowfish, twofish, cast5, 3des, tea, xtea, xor, sm4, none.
-    key: "your-secret-key-here"     # CHANGE ME: Secret key (must match server)
-    
+    # block: "aes"                    # Encryption: aes, aes-128, aes-128-gcm, aes-192, salsa20, blowfish, twofish, cast5, 3des, tea, xtea, xor, sm4, none.
+    key: "your-secret-key-here"       # CHANGE ME: Secret key (must match server)
+
     # Buffer settings (optional)
-    smuxbuf: 4194304       # 4MB SMUX buffer
-    streambuf: 2097152     # 2MB stream buffer
+    # smuxbuf: 4194304       # 4MB SMUX buffer
+    # streambuf: 2097152     # 2MB stream buffer
 
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:

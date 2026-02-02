@@ -8,12 +8,19 @@ import (
 )
 
 type KCP struct {
-	Mode   string `yaml:"mode"`
-	MTU    int    `yaml:"mtu"`
-	Rcvwnd int    `yaml:"rcvwnd"`
-	Sndwnd int    `yaml:"sndwnd"`
-	Dshard int    `yaml:"dshard"`
-	Pshard int    `yaml:"pshard"`
+	Mode         string `yaml:"mode"`
+	NoDelay      int    `yaml:"nodelay"`
+	Interval     int    `yaml:"interval"`
+	Resend       int    `yaml:"resend"`
+	NoCongestion int    `yaml:"nocongestion"`
+	WDelay       bool   `yaml:"wdelay"`
+	AckNoDelay   bool   `yaml:"acknodelay"`
+
+	MTU    int `yaml:"mtu"`
+	Rcvwnd int `yaml:"rcvwnd"`
+	Sndwnd int `yaml:"sndwnd"`
+	Dshard int `yaml:"dshard"`
+	Pshard int `yaml:"pshard"`
 
 	Block_ string `yaml:"block"`
 	Key    string `yaml:"key"`
@@ -69,7 +76,7 @@ func (k *KCP) setDefaults(role string) {
 func (k *KCP) validate() []error {
 	var errors []error
 
-	validModes := []string{"normal", "fast", "fast2", "fast3"}
+	validModes := []string{"normal", "fast", "fast2", "fast3", "manual"}
 	if !slices.Contains(validModes, k.Mode) {
 		errors = append(errors, fmt.Errorf("KCP mode must be one of: %v", validModes))
 	}
