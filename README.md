@@ -37,6 +37,48 @@ KCP provides reliable, encrypted communication optimized for high-loss or unpred
 
 ## Getting Started
 
+### Quick Install (Linux with systemd)
+
+The install script automatically detects your system, downloads the latest release, configures the service, and sets up firewall rules.
+
+**Installation:**
+
+```bash
+# One-Click Interactive Installation
+curl -sSL https://raw.githubusercontent.com/hanselime/paqet/master/install.sh | sudo bash
+
+# Or download and run manually
+curl -sSL https://raw.githubusercontent.com/hanselime/paqet/master/install.sh -o install-paqet.sh && sudo bash install-paqet.sh
+
+# After downloading, run the script directly anytime
+sudo bash install-paqet.sh
+```
+
+**Uninstall:**
+
+```bash
+sudo bash install-paqet.sh --uninstall -y
+```
+
+**Installer Options:**
+| Option | Description |
+|--------|-------------|
+| `--server` | Install as server |
+| `--client` | Install as client |
+| `-y, --yes` | Non-interactive mode |
+| `-s, --server-addr` | Server IP address (client) |
+| `-p, --port` | Server port (default: 9999) |
+| `-k, --key` | Secret key (client) |
+| `--local-port` | Local proxy port (default: 1080) |
+| `--forward` | Forward target host:port (enables TCP forward mode) |
+| `--uninstall` | Remove paqet |
+
+After installation, the service runs automatically. Use `systemctl status paqet` to check status and `journalctl -u paqet -f` to view logs.
+
+---
+
+### Manual Installation
+
 ### Prerequisites
 
 - `libpcap` development libraries must be installed on both the client and server machines.
