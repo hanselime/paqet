@@ -23,18 +23,15 @@ var (
 )
 
 func init() {
-
+	go func() {
+		for msg := range logCh {
+			fmt.Fprint(os.Stdout, msg)
+		}
+	}()
 }
 
 func SetLevel(l int) {
 	minLevel = Level(l)
-	if l != -1 {
-		go func() {
-			for msg := range logCh {
-				fmt.Fprint(os.Stdout, msg)
-			}
-		}()
-	}
 }
 
 func logf(level Level, format string, args ...any) {
