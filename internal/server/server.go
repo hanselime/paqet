@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync"
+	"syscall"
+
 	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"paqet/internal/socket"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
-	"sync"
-	"syscall"
 )
 
 type Server struct {
@@ -75,7 +76,7 @@ func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
 		conn, err := listener.Accept()
 		if err != nil {
 			flog.Errorf("failed to accept connection: %v", err)
-			return
+			continue
 		}
 		flog.Infof("accepted new connection from %s (local: %s)", conn.RemoteAddr(), conn.LocalAddr())
 
