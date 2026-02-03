@@ -66,14 +66,15 @@ android-arm64: $(LIBPCAP_ARM64)/lib/libpcap.a
 	@echo "Built: $(BUILD_DIR)/paqet_android_arm64"
 
 # --- armeabi-v7a ---
+# Use -mfloat-abi=softfp and -marm so Go output matches libpcap (armelf_linux_eabi); avoids "incompatible with armelf_linux_eabi" linker errors.
 android-arm: $(LIBPCAP_ARM)/lib/libpcap.a
 	@mkdir -p $(BUILD_DIR)
 	@echo "Building paqet for android/arm..."
 	$(if $(ANDROID_NDK),,$(error ANDROID_NDK_HOME or ANDROID_NDK_ROOT must be set))
 	GOOS=android GOARCH=arm GOARM=7 CGO_ENABLED=1 \
 	CC="$(NDK_BIN)/armv7a-linux-androideabi$(ANDROID_API)-clang$(NDK_EXE)" \
-	CGO_CFLAGS="-I$(abspath $(LIBPCAP_ARM)/include)" \
-	CGO_LDFLAGS="-L$(abspath $(LIBPCAP_ARM)/lib) -lpcap" \
+	CGO_CFLAGS="-I$(abspath $(LIBPCAP_ARM)/include) -mfloat-abi=softfp -marm" \
+	CGO_LDFLAGS="-L$(abspath $(LIBPCAP_ARM)/lib) -lpcap -mfloat-abi=softfp -marm" \
 	go build -trimpath \
 		-ldflags "-s -w -X 'paqet/cmd/version.Version=$(VERSION)' -X 'paqet/cmd/version.GitCommit=$(GIT_COMMIT)' -X 'paqet/cmd/version.GitTag=$(GIT_TAG)' -X 'paqet/cmd/version.BuildTime=$(BUILD_TIME)'" \
 		-o $(BUILD_DIR)/paqet_android_arm ./cmd/main.go

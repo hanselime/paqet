@@ -35,6 +35,9 @@ NDK_SYSROOT="$NDK/toolchains/llvm/prebuilt/$HOST_TAG/sysroot"
 API="21"
 
 # On Windows, NDK may use .exe or no extension
+# armeabi-v7a: use softfp and -marm so libpcap matches Go's android/arm (armelf_linux_eabi; Go uses -marm).
+ARM_FLAGS=""
+FLOAT_ABI=""
 case "$ABI" in
 	arm64-v8a)
 		HOST="aarch64-linux-android"
@@ -43,6 +46,8 @@ case "$ABI" in
 	armeabi-v7a)
 		HOST="armv7a-linux-androideabi"
 		CLANG_BASE="$NDK_BIN/${HOST}${API}-clang"
+		FLOAT_ABI="-mfloat-abi=softfp"
+		ARM_FLAGS="-marm"
 		;;
 	*)
 		echo "Unsupported ABI: $ABI (use arm64-v8a or armeabi-v7a)" >&2
@@ -74,11 +79,17 @@ if [ ! -f configure ]; then
 	./autogen.sh
 fi
 
+# Use a separate build dir per ABI so we never reuse object files from another ABI (e.g. arm64 .o files when building armeabi-v7a).
+LIBPCAP_BUILD="$LIBPCAP_SRC/build-$ABI"
+rm -rf "$LIBPCAP_BUILD"
+mkdir -p "$LIBPCAP_BUILD"
+cd "$LIBPCAP_BUILD"
+
 mkdir -p "$OUT_DIR"
 export CC="$CLANG"
-export CFLAGS="--sysroot=$NDK_SYSROOT -fPIC"
-export LDFLAGS="--sysroot=$NDK_SYSROOT"
-./configure --host="$HOST" --with-pcap=linux --disable-shared --enable-static \
+export CFLAGS="--sysroot=$NDK_SYSROOT -fPIC $FLOAT_ABI $ARM_FLAGS"
+export LDFLAGS="--sysroot=$NDK_SYSROOT $FLOAT_ABI $ARM_FLAGS"
+../configure --host="$HOST" --with-pcap=linux --disable-shared --enable-static \
 	--prefix=/usr --disable-dbus --disable-usb --disable-bluetooth
 
 make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
