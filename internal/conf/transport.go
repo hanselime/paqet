@@ -8,12 +8,20 @@ import (
 type Transport struct {
 	Protocol string `yaml:"protocol"`
 	Conn     int    `yaml:"conn"`
+	TCPBuf   int    `yaml:"tcpbuf"`
+	UDPBuf   int    `yaml:"udpbuf"`
 	KCP      *KCP   `yaml:"kcp"`
 }
 
 func (t *Transport) setDefaults(role string) {
 	if t.Conn == 0 {
 		t.Conn = 1
+	}
+	if t.TCPBuf == 0 || t.TCPBuf < 4*1024 {
+		t.TCPBuf = 4 * 1024
+	}
+	if t.UDPBuf == 0 || t.UDPBuf < 2*1024 {
+		t.UDPBuf = 2 * 1024
 	}
 	switch t.Protocol {
 	case "kcp":
