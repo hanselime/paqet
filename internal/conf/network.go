@@ -44,8 +44,15 @@ func (n *Network) validate() []error {
 	}
 	n.Interface = lIface
 
-	if runtime.GOOS == "windows" && n.GUID == "" {
-		errors = append(errors, fmt.Errorf("guid is required on windows"))
+	if runtime.GOOS == "windows" {
+		if n.GUID == "" {
+			guid, err := getWindowsGUID(n.Interface)
+			if err != nil {
+				errors = append(errors, fmt.Errorf("guid is required on windows (auto-discovery failed: %v)", err))
+			} else {
+				n.GUID = guid
+			}
+		}
 	}
 
 	ipv4Configured := n.IPv4.Addr_ != ""
@@ -55,10 +62,10 @@ func (n *Network) validate() []error {
 		return errors
 	}
 	if ipv4Configured {
-		errors = append(errors, n.IPv4.validate()...)
+		errors = append(errors, n.IPv4.validate(n.Interface_, false)...)
 	}
 	if ipv6Configured {
-		errors = append(errors, n.IPv6.validate()...)
+		errors = append(errors, n.IPv6.validate(n.Interface_, true)...)
 	}
 	if ipv4Configured && ipv6Configured {
 		if n.IPv4.Addr.Port != n.IPv6.Addr.Port {
@@ -78,7 +85,7 @@ func (n *Network) validate() []error {
 	return errors
 }
 
-func (n *Addr) validate() []error {
+func (n *Addr) validate(ifaceName string, isIPv6 bool) []error {
 	var errors []error
 
 	l, err := validateAddr(n.Addr_, false)
@@ -88,14 +95,21 @@ func (n *Addr) validate() []error {
 	n.Addr = l
 
 	if n.RouterMac_ == "" {
-		errors = append(errors, fmt.Errorf("Router MAC address is required"))
+		mac, err := getGatewayMAC(ifaceName, isIPv6)
+		if err == nil {
+			n.RouterMac_ = mac
+		} else {
+			errors = append(errors, fmt.Errorf("router MAC address is required (auto-discovery failed: %v)", err))
+		}
 	}
 
-	hwAddr, err := net.ParseMAC(n.RouterMac_)
-	if err != nil {
-		errors = append(errors, fmt.Errorf("invalid Router MAC address '%s': %v", n.RouterMac_, err))
+	if n.RouterMac_ != "" {
+		hwAddr, err := net.ParseMAC(n.RouterMac_)
+		if err != nil {
+			errors = append(errors, fmt.Errorf("invalid Router MAC address '%s': %v", n.RouterMac_, err))
+		}
+		n.Router = hwAddr
 	}
-	n.Router = hwAddr
 
 	return errors
 }
