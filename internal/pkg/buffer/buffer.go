@@ -1,7 +1,6 @@
 package buffer
 
 import (
-	"paqet/internal/flog"
 	"sync"
 )
 
@@ -11,7 +10,6 @@ var (
 )
 
 func Initialize(tPool, uPool int) {
-	flog.Warnf("tcpbuf: %d, udpbuf: %d", tPool, uPool)
 	TPool = sync.Pool{
 		New: func() any {
 			b := make([]byte, tPool)
