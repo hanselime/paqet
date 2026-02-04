@@ -53,7 +53,42 @@ You will also need the configuration files from the `example/` directory.
 
 ### 2. Configure the Connection
 
-paqet uses a unified configuration approach with role-based settings. Copy and modify either:
+paqet uses a unified configuration approach with role-based settings. You can generate a configuration file automatically using the provided scripts or manually by copying the examples.
+
+#### Quick Start Configuration (No Clone Required)
+
+**On the Server (Linux):**
+Run this command to download and execute the configuration generator directly:
+```bash
+sudo bash <(curl -Ls https://raw.githubusercontent.com/hanselime/paqet/master/scripts/configure-server.sh)
+```
+
+**On the Client (Windows):**
+Run this command in PowerShell as **Administrator**:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; irm https://raw.githubusercontent.com/hanselime/paqet/master/scripts/configure-client.ps1 | iex
+```
+
+> **Why `Set-ExecutionPolicy`?**
+> Windows blocks script execution by default. This command allows scripts to run only for the current PowerShell session (`-Scope Process`). It automatically reverts when you close the terminal window.
+
+#### Run from Source (If Cloned)
+If you have already cloned the repository, you can run the scripts locally:
+
+**Linux:**
+```bash
+chmod +x scripts/configure-server.sh
+sudo ./scripts/configure-server.sh
+```
+
+**Windows:**
+```powershell
+.\scripts\configure-client.ps1
+```
+
+#### Manual Configuration
+
+Copy and modify the example files directly:
 
 - `example/client.yaml.example` - Client configuration example
 - `example/server.yaml.example` - Server configuration example
