@@ -60,7 +60,7 @@ paqet uses a unified configuration approach with role-based settings. You can ge
 **On the Server (Linux):**
 Run this command to download and execute the configuration generator directly:
 ```bash
-sudo bash <(curl -Ls https://raw.githubusercontent.com/hanselime/paqet/master/scripts/configure-server.sh)
+sudo bash -c "$(curl -Ls https://raw.githubusercontent.com/hanselime/paqet/master/scripts/configure-server.sh)"
 ```
 
 **On the Client (Windows):**
