@@ -20,8 +20,11 @@ log_error() { echo -e "${RED}✖ $1${NC}"; }
 
 # Check for root privileges
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-   log_warn "It is recommended to run this script as root (sudo) for reliable network detection and applying firewall rules."
+   log_error "This script must be run as root (use sudo) to configure iptables rules."
+   exit 1
 fi
+
+
 
 # --- Helper Functions ---
 
@@ -289,22 +292,12 @@ apply_rule() {
         log_success "Applied: $desc"
     else
         log_error "Failed to apply: $desc"
-        # Since we are likely running as sudo, this might work.
-        # If not, we warn.
     fi
 }
 
-# Check if we are effectively root or can sudo
-if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    log_warn "Not running as root. Attempting to use sudo for iptables..."
-    apply_rule "sudo $rule1" "Ignore incoming tracking on port $listen_port"
-    apply_rule "sudo $rule2" "Ignore outgoing tracking on port $listen_port"
-    apply_rule "sudo $rule3" "Drop kernel RST packets on port $listen_port"
-else
-    apply_rule "$rule1" "Ignore incoming tracking on port $listen_port"
-    apply_rule "$rule2" "Ignore outgoing tracking on port $listen_port"
-    apply_rule "$rule3" "Drop kernel RST packets on port $listen_port"
-fi
+apply_rule "$rule1" "Ignore incoming tracking on port $listen_port"
+apply_rule "$rule2" "Ignore outgoing tracking on port $listen_port"
+apply_rule "$rule3" "Drop kernel RST packets on port $listen_port"
 
 log_header "Setup Complete!"
 log_info "You can now run the server with:"
