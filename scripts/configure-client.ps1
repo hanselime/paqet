@@ -156,8 +156,7 @@ while ($true) {
 }
 Write-Info "Target Server: $serverAddr"
 
-$socksPort = "1080"  # We could prompt for this, but standard is usually fine.
-$socksListen = "127.0.0.1:$socksPort"
+
 
 # 2. Network Selection
 Write-Step "Step 2: Network Interface"
@@ -258,8 +257,19 @@ while ([string]::IsNullOrWhiteSpace($kcpKey)) {
 }
 Write-Success "Key set."
 
-# 5. Output
-Write-Step "Step 5: Finalizing"
+# 5. Client Settings
+Write-Step "Step 5: Client Settings"
+while ($true) {
+    $socksPort = Write-Prompt "Local SOCKS5 Listen Port" "1080"
+    if ($socksPort -match '^\d+$' -and [int]$socksPort -ge 1 -and [int]$socksPort -le 65535) {
+        break
+    }
+    Write-Warn "Invalid port."
+}
+$socksListen = "127.0.0.1:$socksPort"
+
+# 6. Output
+Write-Step "Step 6: Finalizing"
 $outputFile = Write-Prompt "Output configuration file" $DefaultOutput
 
 $yaml = @"
@@ -270,7 +280,7 @@ socks5:
   - listen: "$socksListen"
 network:
   interface: "$interfaceName"
-  guid: "$npcapGuid"
+  guid: '$npcapGuid'
   ipv4:
     addr: "${clientIp}:${clientPort}"
     router_mac: "$routerMac"
