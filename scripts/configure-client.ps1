@@ -295,4 +295,6 @@ Write-Success "Configuration saved to $outputFile"
 Write-Header "Setup Complete!"
 Write-Info "You can now run the client with:"
 Write-Host "  paqet run -c $outputFile" -ForegroundColor Green
-Write-Info "Make sure you have Npcap installed!"
+Write-Info "Make sure you have Npcap installed from: https://npcap.com/"
+Write-Host "`nPress any key to exit..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
