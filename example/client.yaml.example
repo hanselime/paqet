@@ -40,6 +40,10 @@ network:
   # PCAP settings (optional - will use defaults)
   # pcap:
     # sockbuf: 4194304                        # 4MB buffer (default for client)
+    # send_queue_size: 1000                   # Send queue size (default: 1000)
+    # max_retries: 3                          # Max retry attempts on write failure (default: 3)
+    # initial_backoff_ms: 10                  # Initial retry backoff in ms (default: 10ms)
+    # max_backoff_ms: 1000                    # Maximum retry backoff in ms (default: 1000ms)
 
 # Server connection settings
 server:
