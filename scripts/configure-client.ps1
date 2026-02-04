@@ -289,7 +289,7 @@ transport:
     key: "$kcpKey"
 "@
 
-$yaml | Set-Content -Path $outputFile -Encoding utf8
+[System.IO.File]::WriteAllText("$outputFile", $yaml)
 Write-Success "Configuration saved to $outputFile"
 
 Write-Header "Setup Complete!"
