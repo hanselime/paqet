@@ -3,6 +3,7 @@ package socket
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"net"
 	"paqet/internal/conf"
 	"paqet/internal/pkg/hash"
@@ -30,16 +31,45 @@ type SendHandle struct {
 	srcIPv6     net.IP
 	srcIPv6RHWA net.HardwareAddr
 	srcPort     uint16
+	ipv4TOS     uint8
+	ipv4DF      bool
+	ipv4TTL     uint8
+	ipv6TC      uint8
+	ipv6Hop     uint8
 	synOptions  []layers.TCPOption
 	ackOptions  []layers.TCPOption
 	time        uint32
 	tsCounter   uint32
 	tcpF        TCPF
+	flowMu      sync.RWMutex
+	flows       map[uint64]*flowState
 	ethPool     sync.Pool
 	ipv4Pool    sync.Pool
 	ipv6Pool    sync.Pool
 	tcpPool     sync.Pool
 	bufPool     sync.Pool
+}
+
+type flowState struct {
+	mu              sync.Mutex
+	nextSeq         uint32
+	lastRemoteSeq   uint32
+	lastRemoteInc   uint32
+	lastRemoteSeen  bool
+	lastRemoteTSVal uint32
+}
+
+func cloneTCPOptions(opts []layers.TCPOption) []layers.TCPOption {
+	c := make([]layers.TCPOption, len(opts))
+	for i, opt := range opts {
+		c[i] = opt
+		if opt.OptionData != nil {
+			b := make([]byte, len(opt.OptionData))
+			copy(b, opt.OptionData)
+			c[i].OptionData = b
+		}
+	}
+	return c
 }
 
 func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
@@ -69,13 +99,21 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
 	}
 
+	rand.Seed(time.Now().UnixNano())
+
 	sh := &SendHandle{
 		handle:     handle,
 		srcPort:    uint16(cfg.Port),
+		ipv4TOS:    uint8(cfg.IPv4TOS),
+		ipv4DF:     cfg.IPv4DF,
+		ipv4TTL:    uint8(cfg.IPv4TTL),
+		ipv6TC:     uint8(cfg.IPv6TC),
+		ipv6Hop:    uint8(cfg.IPv6Hop),
 		synOptions: synOptions,
 		ackOptions: ackOptions,
 		tcpF:       TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
 		time:       uint32(time.Now().UnixNano() / int64(time.Millisecond)),
+		flows:      make(map[uint64]*flowState),
 		ethPool: sync.Pool{
 			New: func() any {
 				return &layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr}
@@ -115,12 +153,16 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 
 func (h *SendHandle) buildIPv4Header(dstIP net.IP) *layers.IPv4 {
 	ip := h.ipv4Pool.Get().(*layers.IPv4)
+	flags := layers.IPv4DontFragment
+	if !h.ipv4DF {
+		flags = 0
+	}
 	*ip = layers.IPv4{
 		Version:  4,
 		IHL:      5,
-		TOS:      184,
-		TTL:      64,
-		Flags:    layers.IPv4DontFragment,
+		TOS:      h.ipv4TOS,
+		TTL:      h.ipv4TTL,
+		Flags:    flags,
 		Protocol: layers.IPProtocolTCP,
 		SrcIP:    h.srcIPv4,
 		DstIP:    dstIP,
@@ -132,8 +174,8 @@ func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
 	ip := h.ipv6Pool.Get().(*layers.IPv6)
 	*ip = layers.IPv6{
 		Version:      6,
-		TrafficClass: 184,
-		HopLimit:     64,
+		TrafficClass: h.ipv6TC,
+		HopLimit:     h.ipv6Hop,
 		NextHeader:   layers.IPProtocolTCP,
 		SrcIP:        h.srcIPv6,
 		DstIP:        dstIP,
@@ -141,7 +183,7 @@ func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
 	return ip
 }
 
-func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
+func (h *SendHandle) buildTCPHeader(dstIP net.IP, dstPort uint16, f conf.TCPF, payloadLen int) *layers.TCP {
 	tcp := h.tcpPool.Get().(*layers.TCP)
 	*tcp = layers.TCP{
 		SrcPort: layers.TCPPort(h.srcPort),
@@ -150,26 +192,49 @@ func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
 		Window: 65535,
 	}
 
+	state := h.getFlowState(dstIP, dstPort)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	if state.nextSeq == 0 {
+		state.nextSeq = rand.Uint32()
+	}
+
+	seq := state.nextSeq
+	ack := uint32(0)
+	if state.lastRemoteSeen {
+		ack = state.lastRemoteSeq + state.lastRemoteInc
+	}
+
 	counter := atomic.AddUint32(&h.tsCounter, 1)
 	tsVal := h.time + (counter >> 3)
+	tsEcr := state.lastRemoteTSVal
+
 	if f.SYN {
-		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[0:4], tsVal)
-		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[4:8], 0)
-		tcp.Options = h.synOptions
-		tcp.Seq = 1 + (counter & 0x7)
-		tcp.Ack = 0
+		opts := cloneTCPOptions(h.synOptions)
+		binary.BigEndian.PutUint32(opts[2].OptionData[0:4], tsVal)
+		binary.BigEndian.PutUint32(opts[2].OptionData[4:8], 0)
+		tcp.Options = opts
+		tcp.Seq = seq
 		if f.ACK {
-			tcp.Ack = tcp.Seq + 1
+			tcp.Ack = ack
 		}
 	} else {
-		tsEcr := tsVal - (counter%200 + 50)
-		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[0:4], tsVal)
-		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[4:8], tsEcr)
-		tcp.Options = h.ackOptions
-		seq := h.time + (counter << 7)
+		opts := cloneTCPOptions(h.ackOptions)
+		binary.BigEndian.PutUint32(opts[2].OptionData[0:4], tsVal)
+		binary.BigEndian.PutUint32(opts[2].OptionData[4:8], tsEcr)
+		tcp.Options = opts
 		tcp.Seq = seq
-		tcp.Ack = seq - (counter & 0x3FF) + 1400
+		if f.ACK {
+			tcp.Ack = ack
+		}
 	}
+
+	inc := uint32(payloadLen)
+	if f.SYN || f.FIN {
+		inc++
+	}
+	state.nextSeq = seq + inc
 
 	return tcp
 }
@@ -187,7 +252,7 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	dstPort := uint16(addr.Port)
 
 	f := h.getClientTCPF(dstIP, dstPort)
-	tcpLayer := h.buildTCPHeader(dstPort, f)
+	tcpLayer := h.buildTCPHeader(dstIP, dstPort, f, len(payload))
 	defer h.tcpPool.Put(tcpLayer)
 
 	var ipLayer gopacket.SerializableLayer
@@ -214,6 +279,32 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	return h.handle.WritePacketData(buf.Bytes())
 }
 
+func (h *SendHandle) observeTCP(meta *TCPMeta) {
+	if meta == nil {
+		return
+	}
+	if meta.SrcIP == nil || len(meta.SrcIP) == 0 {
+		return
+	}
+	if meta.SrcPort == 0 {
+		return
+	}
+	state := h.getFlowState(meta.SrcIP, meta.SrcPort)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	state.lastRemoteSeen = true
+	state.lastRemoteSeq = meta.Seq
+	inc := uint32(meta.PayloadLen)
+	if meta.SYN || meta.FIN {
+		inc++
+	}
+	state.lastRemoteInc = inc
+	if meta.HasTS {
+		state.lastRemoteTSVal = meta.TSVal
+	}
+}
+
 func (h *SendHandle) getClientTCPF(dstIP net.IP, dstPort uint16) conf.TCPF {
 	h.tcpF.mu.RLock()
 	defer h.tcpF.mu.RUnlock()
@@ -228,6 +319,24 @@ func (h *SendHandle) setClientTCPF(addr net.Addr, f []conf.TCPF) {
 	h.tcpF.mu.Lock()
 	h.tcpF.clientTCPF[hash.IPAddr(a.IP, uint16(a.Port))] = &iterator.Iterator[conf.TCPF]{Items: f}
 	h.tcpF.mu.Unlock()
+}
+
+func (h *SendHandle) getFlowState(dstIP net.IP, dstPort uint16) *flowState {
+	key := hash.IPAddr(dstIP, dstPort)
+	h.flowMu.RLock()
+	st := h.flows[key]
+	h.flowMu.RUnlock()
+	if st != nil {
+		return st
+	}
+	h.flowMu.Lock()
+	defer h.flowMu.Unlock()
+	if st = h.flows[key]; st != nil {
+		return st
+	}
+	st = &flowState{}
+	h.flows[key] = st
+	return st
 }
 
 func (h *SendHandle) Close() {

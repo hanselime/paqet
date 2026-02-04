@@ -67,9 +67,12 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 	default:
 	}
 
-	payload, addr, err := c.recvHandle.Read()
+	payload, addr, meta, err := c.recvHandle.Read()
 	if err != nil {
 		return 0, nil, err
+	}
+	if meta != nil && c.sendHandle != nil {
+		c.sendHandle.observeTCP(meta)
 	}
 	n = copy(data, payload)
 

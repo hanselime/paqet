@@ -34,8 +34,16 @@ network:
     router_mac: "aa:bb:cc:dd:ee:ff"         # CHANGE ME: Gateway/router MAC address for IPv6
 
   tcp:
+    # preset: "restrictive"                 # Use a conntrack-friendly preset (overrides flags below)
     local_flag: ["PA"]                      # Local TCP flags (Push+Ack default)
     remote_flag: ["PA"]                     # Remote TCP flags (Push+Ack default)
+
+  # IP header tuning (optional)
+  # ipv4_tos: 0                             # 0-255 (default 0)
+  # ipv4_df: false                          # Don't Fragment (default false)
+  # ipv4_ttl: 64                            # IPv4 TTL (default 64)
+  # ipv6_tc: 0                              # IPv6 traffic class (default 0)
+  # ipv6_hoplimit: 64                       # IPv6 hop limit (default 64)
 
   # PCAP settings (optional - will use defaults)
   # pcap:
@@ -95,6 +103,9 @@ transport:
     # Buffer settings (optional)
     # smuxbuf: 4194304       # 4MB SMUX buffer
     # streambuf: 2097152     # 2MB stream buffer
+    # keepalive_sec: 10      # SMUX keepalive interval (seconds)
+    # keepalive_timeout_sec: 60 # SMUX keepalive timeout (seconds)
+    # ping_sec: 20           # Application-level ping interval (seconds)
 
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:

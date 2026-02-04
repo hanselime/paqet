@@ -15,6 +15,9 @@ type KCP struct {
 	NoCongestion int    `yaml:"nocongestion"`
 	WDelay       bool   `yaml:"wdelay"`
 	AckNoDelay   bool   `yaml:"acknodelay"`
+	KeepAliveSec int    `yaml:"keepalive_sec"`
+	KeepAliveTO  int    `yaml:"keepalive_timeout_sec"`
+	PingSec      int    `yaml:"ping_sec"`
 
 	MTU    int `yaml:"mtu"`
 	Rcvwnd int `yaml:"rcvwnd"`
@@ -71,6 +74,15 @@ func (k *KCP) setDefaults(role string) {
 	if k.Streambuf == 0 {
 		k.Streambuf = 2 * 1024 * 1024
 	}
+	if k.KeepAliveSec == 0 {
+		k.KeepAliveSec = 10
+	}
+	if k.KeepAliveTO == 0 {
+		k.KeepAliveTO = 60
+	}
+	if k.PingSec == 0 {
+		k.PingSec = 20
+	}
 }
 
 func (k *KCP) validate() []error {
@@ -110,6 +122,15 @@ func (k *KCP) validate() []error {
 	}
 	if k.Streambuf < 1024 {
 		errors = append(errors, fmt.Errorf("KCP streambuf must be >= 1024 bytes"))
+	}
+	if k.KeepAliveSec < 1 || k.KeepAliveSec > 3600 {
+		errors = append(errors, fmt.Errorf("KCP keepalive_sec must be between 1-3600 seconds"))
+	}
+	if k.KeepAliveTO < 2 || k.KeepAliveTO > 7200 {
+		errors = append(errors, fmt.Errorf("KCP keepalive_timeout_sec must be between 2-7200 seconds"))
+	}
+	if k.PingSec < 1 || k.PingSec > 3600 {
+		errors = append(errors, fmt.Errorf("KCP ping_sec must be between 1-3600 seconds"))
 	}
 
 	return errors
