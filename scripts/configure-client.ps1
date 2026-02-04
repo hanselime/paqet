@@ -38,15 +38,7 @@ function Write-ErrorMsg {
     Write-Host " [x] $Msg" -ForegroundColor Red
 }
 
-# --- Security Check ---
-function Test-Administrator {
-  $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-  return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
 
-if (-not (Test-Administrator)) {
-    Write-Warn "This script is not running as Administrator. Network detection (GUIDs/MACs) may fail or be incomplete."
-}
 
 # --- Input Helpers ---
 
