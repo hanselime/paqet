@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"math/rand"
 	"net"
 	"paqet/internal/conf"
 	"paqet/internal/pkg/hash"
@@ -287,7 +288,7 @@ func (h *SendHandle) calculateBackoff(retries int) time.Duration {
 		backoffMs = float64(h.cfg.PCAP.MaxBackoff)
 	}
 	// Add up to 20% jitter to avoid thundering herd
-	jitter := backoffMs * 0.2 * (float64(time.Now().UnixNano()%100) / 100.0)
+	jitter := backoffMs * 0.2 * rand.Float64()
 	return time.Duration(backoffMs+jitter) * time.Millisecond
 }
 
@@ -351,10 +352,10 @@ func (h *SendHandle) Close() {
 	if h.cancel != nil {
 		h.cancel()
 	}
+	h.wg.Wait()
 	if h.sendQueue != nil {
 		close(h.sendQueue)
 	}
-	h.wg.Wait()
 	if h.handle != nil {
 		h.handle.Close()
 	}

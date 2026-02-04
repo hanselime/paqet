@@ -41,17 +41,16 @@ func TestSendQueueBackpressure(t *testing.T) {
 	// Test that we can send up to queue size
 	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8080}
 	
-	// Fill the queue
+	// Fill the queue with goroutines that will block waiting for results
+	errChan := make(chan error, cfg.PCAP.SendQueueSize+1)
 	for i := 0; i < cfg.PCAP.SendQueueSize; i++ {
 		go func() {
 			err := sh.Write([]byte("test"), addr)
-			if err != nil && err.Error() != "send queue full, packet dropped" {
-				// Expected to block since processQueue isn't running
-			}
+			errChan <- err
 		}()
 	}
 
-	// Wait a bit for goroutines to start
+	// Wait a bit for goroutines to queue requests
 	time.Sleep(10 * time.Millisecond)
 
 	// Next write should fail with backpressure
@@ -135,7 +134,7 @@ func TestQueueDepth(t *testing.T) {
 	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8080}
 	for i := 0; i < 3; i++ {
 		go func() {
-			sh.Write([]byte("test"), addr)
+			_ = sh.Write([]byte("test"), addr)
 		}()
 	}
 
