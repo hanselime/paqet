@@ -30,7 +30,12 @@ func (h *HTTP) Start(ctx context.Context, cfg conf.HTTP) error {
 }
 
 func (h *HTTP) listen(ctx context.Context, cfg conf.HTTP) {
-	listenAddr, _ := net.ResolveTCPAddr("tcp", cfg.Listen.String())
+	// cfg.Listen is already validated, so this should not fail
+	listenAddr, err := net.ResolveTCPAddr("tcp", cfg.Listen.String())
+	if err != nil {
+		flog.Fatalf("HTTP proxy failed to resolve address %s: %v", cfg.Listen.String(), err)
+		return
+	}
 	listener, err := net.ListenTCP("tcp", listenAddr)
 	if err != nil {
 		flog.Fatalf("HTTP proxy failed to listen on %s: %v", listenAddr.String(), err)

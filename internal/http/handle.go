@@ -143,7 +143,9 @@ func (h *HTTP) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	io.Copy(w, resp.Body)
+	if _, err := io.Copy(w, resp.Body); err != nil {
+		flog.Errorf("HTTP proxy failed to copy response body from %s: %v", targetHost, err)
+	}
 	flog.Debugf("HTTP proxy %s %s -> %s completed", r.Method, r.RemoteAddr, targetHost)
 }
 
