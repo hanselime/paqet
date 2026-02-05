@@ -6,6 +6,7 @@ import (
 
 	"paqet/internal/conf"
 	"paqet/internal/flog"
+	"paqet/internal/metrics"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
 )
@@ -21,6 +22,9 @@ func New(cfg *conf.Conf) (*Server, error) {
 }
 
 func (s *Server) Start(ctx context.Context) error {
+	metrics.SetRole(s.cfg.Role)
+	metrics.Start(ctx, s.cfg.Metrics)
+
 	listener, err := kcp.Listen(s.cfg.Transport.KCP, s.cfg.Network)
 	if err != nil {
 		return fmt.Errorf("could not start KCP listener: %w", err)
@@ -45,7 +49,11 @@ func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
 				continue
 			}
 		}
-		flog.Infof("accepted new connection from %s (local: %s)", conn.RemoteAddr(), conn.LocalAddr())
+		flog.Infof(
+			"accepted new connection from %s (local: %s)",
+			conn.RemoteAddr(),
+			conn.LocalAddr(),
+		)
 
 		go func() {
 			defer conn.Close()

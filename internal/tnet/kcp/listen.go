@@ -8,6 +8,7 @@ import (
 	"github.com/xtaci/smux"
 
 	"paqet/internal/conf"
+	"paqet/internal/metrics"
 	"paqet/internal/socket"
 	"paqet/internal/tnet"
 )
@@ -45,7 +46,12 @@ func (l *Listener) Accept() (tnet.Conn, error) {
 		conn.Close()
 		return nil, fmt.Errorf("kcp: failed to create smux session: %w", err)
 	}
-	return &Conn{nil, conn, sess}, nil
+	metrics.IncConnections()
+	metricsID := metrics.RegisterConnection(
+		addrString(conn.RemoteAddr()),
+		addrString(conn.LocalAddr()),
+	)
+	return &Conn{UDPSession: conn, Session: sess, counted: true, metricsID: metricsID}, nil
 }
 
 func (l *Listener) Close() error {

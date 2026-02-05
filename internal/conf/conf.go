@@ -19,6 +19,7 @@ type Conf struct {
 	Network   Network   `yaml:"network"`
 	Server    Server    `yaml:"server"`
 	Transport Transport `yaml:"transport"`
+	Metrics   Metrics   `yaml:"metrics"`
 }
 
 func LoadFromFile(path string) (*Conf, error) {
@@ -58,6 +59,7 @@ func (c *Conf) setDefaults() {
 	c.Network.setDefaults(c.Role)
 	c.Server.setDefaults()
 	c.Transport.setDefaults(c.Role)
+	c.Metrics.setDefaults()
 }
 
 func (c *Conf) validate() error {
@@ -83,6 +85,7 @@ func (c *Conf) validate() error {
 
 	allErrors = append(allErrors, c.Network.validate()...)
 	allErrors = append(allErrors, c.Transport.validate()...)
+	allErrors = append(allErrors, c.Metrics.validate()...)
 	if c.Role == "server" {
 		allErrors = append(allErrors, c.Listen.validate()...)
 	} else {

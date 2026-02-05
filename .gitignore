@@ -41,3 +41,9 @@ Thumbs.db
 build/
 dist/
 tmp/
+server.yaml
+config.yaml
+client.yaml
+client.json
+logs/client.log
+.gitignore

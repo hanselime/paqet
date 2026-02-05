@@ -6,6 +6,10 @@ role: "server"
 log:
   level: "info"  # none, debug, info, warn, error, fatal
 
+metrics:
+  enabled: false
+  listen: "127.0.0.1:9090"
+
 # Server listen configuration
 listen:
   addr: ":9999"   # CHANGE ME: Server listen port (must match network.ipv4.addr port)

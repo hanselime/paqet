@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"paqet/internal/flog"
+	"paqet/internal/metrics"
 	"paqet/internal/protocol"
 	"paqet/internal/tnet"
 )
@@ -28,6 +29,7 @@ func (s *Server) handleStrm(ctx context.Context, strm tnet.Strm) {
 	err := p.Read(strm)
 	if err != nil {
 		flog.Errorf("failed to read protocol message from stream %d: %v", strm.SID(), err)
+		metrics.IncFailure()
 		return
 	}
 
@@ -42,5 +44,6 @@ func (s *Server) handleStrm(ctx context.Context, strm tnet.Strm) {
 		s.handleUDPProtocol(ctx, strm, &p)
 	default:
 		flog.Errorf("unknown protocol type %d on stream %d", p.Type, strm.SID())
+		metrics.IncFailure()
 	}
 }

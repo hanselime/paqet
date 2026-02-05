@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"paqet/internal/flog"
+	"paqet/internal/metrics"
 	"paqet/internal/pkg/buffer"
 )
 
@@ -33,6 +34,9 @@ func (f *Forward) handleTCPConn(ctx context.Context, conn net.Conn) {
 	strm, err := f.client.TCP(ctx, f.targetAddr)
 	if err != nil {
 		flog.Errorf("failed to establish stream for %s -> %s: %v", conn.RemoteAddr(), f.targetAddr, err)
+		metrics.IncFailure()
+		metrics.IncFailureForwardTCP()
+		metrics.IncFailureTCP()
 		return
 	}
 	defer strm.Close()
@@ -46,6 +50,13 @@ func (f *Forward) handleTCPConn(ctx context.Context, conn net.Conn) {
 	case err := <-errCh:
 		if err != nil {
 			flog.Errorf("TCP stream %d failed for %s -> %s: %v", strm.SID(), conn.RemoteAddr(), f.targetAddr, err)
+			metrics.IncFailure()
+			metrics.IncFailureForwardTCP()
+			metrics.IncFailureTCP()
+		} else {
+			metrics.IncSuccess()
+			metrics.IncSuccessForwardTCP()
+			metrics.IncSuccessTCP()
 		}
 	case <-ctx.Done():
 	}

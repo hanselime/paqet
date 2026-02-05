@@ -25,6 +25,25 @@ func validateAddr(addr string, vPort bool) (*net.UDPAddr, error) {
 	return uAddr, nil
 }
 
+func validateTCPAddr(addr string, vPort bool) (*net.TCPAddr, error) {
+	if addr == "" {
+		return nil, fmt.Errorf("address is required")
+	}
+
+	tAddr, err := net.ResolveTCPAddr("tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid address '%s': %v", addr, err)
+	}
+
+	if vPort {
+		if tAddr.Port < 1 || tAddr.Port > 65535 {
+			return nil, fmt.Errorf("port must be between 1-65535")
+		}
+	}
+
+	return tAddr, nil
+}
+
 func validateHostPort(addr string, vPort bool) error {
 	if addr == "" {
 		return fmt.Errorf("address is required")

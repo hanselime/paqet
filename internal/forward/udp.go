@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"paqet/internal/flog"
+	"paqet/internal/metrics"
 	"paqet/internal/pkg/buffer"
 	"paqet/internal/tnet"
 )
@@ -74,6 +75,9 @@ func (f *Forward) udpToStrm(ctx context.Context, conn *net.UDPConn, cAddr netip.
 	strm, _, k, err := f.client.UDP(ctx, cAddr.String(), f.targetAddr)
 	if err != nil {
 		flog.Errorf("failed to establish UDP stream for %s -> %s: %v", cAddr, f.targetAddr, err)
+		metrics.IncFailure()
+		metrics.IncFailureForwardUDP()
+		metrics.IncFailureUDP()
 		f.closeUDPSess(cAddr, sess)
 		return
 	}
@@ -97,9 +101,15 @@ func (f *Forward) udpToStrm(ctx context.Context, conn *net.UDPConn, cAddr netip.
 			_, err = strm.Write(buf)
 			if err != nil {
 				flog.Errorf("failed to forward bytes from %s -> %s: %v", cAddr, f.targetAddr, err)
+				metrics.IncFailure()
+				metrics.IncFailureForwardUDP()
+				metrics.IncFailureUDP()
 				return
 			}
 			f.client.Touch(sess.key)
+			metrics.IncSuccess()
+			metrics.IncSuccessForwardUDP()
+			metrics.IncSuccessUDP()
 		}
 	}
 }
@@ -113,12 +123,18 @@ func (f *Forward) strmToUDP(ctx context.Context, strm tnet.Strm, conn *net.UDPCo
 		n, err := strm.Read(buf)
 		if err != nil {
 			flog.Errorf("UDP stream %d read failed for %s -> %s: %v", strm.SID(), cAddr, f.targetAddr, err)
+			metrics.IncFailure()
+			metrics.IncFailureForwardUDP()
+			metrics.IncFailureUDP()
 			return
 		}
 		f.client.Touch(sess.key)
 		_, err = conn.WriteToUDPAddrPort(buf[:n], cAddr)
 		if err != nil {
 			flog.Errorf("UDP stream %d write failed for %s -> %s: %v", strm.SID(), cAddr, f.targetAddr, err)
+			metrics.IncFailure()
+			metrics.IncFailureForwardUDP()
+			metrics.IncFailureUDP()
 			return
 		}
 	}

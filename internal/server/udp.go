@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"paqet/internal/flog"
+	"paqet/internal/metrics"
 	"paqet/internal/pkg/buffer"
 	"paqet/internal/protocol"
 	"paqet/internal/tnet"
@@ -21,6 +22,8 @@ func (s *Server) handleUDP(ctx context.Context, strm tnet.Strm, addr string) {
 	conn, err := dialer.DialContext(ctx, "udp", addr)
 	if err != nil {
 		flog.Errorf("failed to establish UDP connection to %s for stream %d: %v", addr, strm.SID(), err)
+		metrics.IncFailure()
+		metrics.IncFailureUDP()
 		return
 	}
 	defer func() {
@@ -36,7 +39,12 @@ func (s *Server) handleUDP(ctx context.Context, strm tnet.Strm, addr string) {
 	case err := <-errChan:
 		if err != nil {
 			flog.Errorf("UDP stream %d failed for %s -> %s: %v", strm.SID(), conn.RemoteAddr(), addr, err)
+			metrics.IncFailure()
+			metrics.IncFailureUDP()
 		}
 	case <-ctx.Done():
 	}
+
+	metrics.IncSuccess()
+	metrics.IncSuccessUDP()
 }

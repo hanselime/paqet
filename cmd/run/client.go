@@ -9,12 +9,15 @@ import (
 	"paqet/internal/client"
 	"paqet/internal/conf"
 	"paqet/internal/forward"
+	"paqet/internal/metrics"
 	"paqet/internal/socks"
 )
 
 func startClient(cfg *conf.Conf) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	metrics.SetRole(cfg.Role)
+	metrics.Start(ctx, cfg.Metrics)
 
 	client, err := client.New(cfg)
 	if err != nil {
