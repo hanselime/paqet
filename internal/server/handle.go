@@ -22,14 +22,16 @@ func (s *Server) handleConn(ctx context.Context, conn tnet.Conn) {
 			flog.Errorf("failed to accept stream on %s: %v", conn.RemoteAddr(), err)
 			return
 		}
-		s.wg.Go(func() {
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
 			defer strm.Close()
 			if err := s.handleStrm(ctx, strm); err != nil {
 				flog.Errorf("stream %d from %s closed with error: %v", strm.SID(), strm.RemoteAddr(), err)
 			} else {
 				flog.Debugf("stream %d from %s closed", strm.SID(), strm.RemoteAddr())
 			}
-		})
+		}()
 	}
 }
 

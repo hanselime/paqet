@@ -25,15 +25,19 @@ func (c *Client) newConn() (tnet.Conn, error) {
 }
 
 func (c *Client) newStrm() (tnet.Strm, error) {
-	conn, err := c.newConn()
-	if err != nil {
-		flog.Debugf("session creation failed, retrying")
-		return c.newStrm()
+	for {
+		conn, err := c.newConn()
+		if err != nil {
+			flog.Debugf("session creation failed, retrying")
+			time.Sleep(time.Second)
+			continue
+		}
+		strm, err := conn.OpenStrm()
+		if err != nil {
+			flog.Debugf("failed to open stream, retrying: %v", err)
+			time.Sleep(time.Second)
+			continue
+		}
+		return strm, nil
 	}
-	strm, err := conn.OpenStrm()
-	if err != nil {
-		flog.Debugf("failed to open stream, retrying: %v", err)
-		return c.newStrm()
-	}
-	return strm, nil
 }

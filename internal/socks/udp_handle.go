@@ -11,9 +11,6 @@ import (
 )
 
 func (h *Handler) UDPHandle(server *socks5.Server, addr *net.UDPAddr, d *socks5.Datagram) error {
-	bufp := buffer.UPool.Get().(*[]byte)
-	defer buffer.UPool.Put(bufp)
-	buf := *bufp
 	strm, new, k, err := h.client.UDP(addr.String(), d.Address())
 	if err != nil {
 		flog.Errorf("SOCKS5 failed to establish UDP stream for %s -> %s: %v", addr, d.Address(), err)
@@ -31,6 +28,9 @@ func (h *Handler) UDPHandle(server *socks5.Server, addr *net.UDPAddr, d *socks5.
 	if new {
 		flog.Infof("SOCKS5 accepted UDP connection %s -> %s", addr, d.Address())
 		go func() {
+			bufp := buffer.UPool.Get().(*[]byte)
+			defer buffer.UPool.Put(bufp)
+			buf := *bufp
 			defer func() {
 				flog.Debugf("SOCKS5 UDP stream %d closed for %s -> %s", strm.SID(), addr, d.Address())
 				h.client.CloseUDP(k)
@@ -65,7 +65,7 @@ func (h *Handler) handleUDPAssociate(conn *net.TCPConn) error {
 
 	bufp := rPool.Get().(*[]byte)
 	defer rPool.Put(bufp)
-	buf := *bufp
+	buf := (*bufp)[:0]
 	buf = append(buf, socks5.Ver)
 	buf = append(buf, socks5.RepSuccess)
 	buf = append(buf, 0x00) // reserved

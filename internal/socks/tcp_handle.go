@@ -29,7 +29,7 @@ func (h *Handler) handleTCPConnect(conn *net.TCPConn, r *socks5.Request) error {
 	addr := conn.LocalAddr().(*net.TCPAddr)
 	bufp := rPool.Get().(*[]byte)
 	defer rPool.Put(bufp)
-	buf := *bufp
+	buf := (*bufp)[:0]
 	buf = append(buf, socks5.Ver)
 	buf = append(buf, socks5.RepSuccess)
 	buf = append(buf, 0x00)

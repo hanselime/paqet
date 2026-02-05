@@ -37,17 +37,21 @@ func (f *Forward) Start(ctx context.Context, protocol string) error {
 }
 
 func (f *Forward) startTCP(ctx context.Context) error {
-	f.wg.Go(func() {
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
 		if err := f.listenTCP(ctx); err != nil {
 			flog.Debugf("TCP forwarder stopped with: %v", err)
 		}
-	})
+	}()
 	return nil
 }
 
 func (f *Forward) startUDP(ctx context.Context) error {
-	f.wg.Go(func() {
+	f.wg.Add(1)
+	go func() {
+		defer f.wg.Done()
 		f.listenUDP(ctx)
-	})
+	}()
 	return nil
 }

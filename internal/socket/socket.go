@@ -2,8 +2,9 @@ package socket
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"net"
 	"os"
 	"paqet/internal/conf"
@@ -25,7 +26,11 @@ type PacketConn struct {
 // &OpError{Op: "listen", Net: network, Source: nil, Addr: nil, Err: err}
 func New(ctx context.Context, cfg *conf.Network) (*PacketConn, error) {
 	if cfg.Port == 0 {
-		cfg.Port = 32768 + rand.Intn(32768)
+		portOffset, err := rand.Int(rand.Reader, big.NewInt(32768))
+		if err != nil {
+			return nil, fmt.Errorf("failed to select random port: %w", err)
+		}
+		cfg.Port = 32768 + int(portOffset.Int64())
 	}
 
 	sendHandle, err := NewSendHandle(cfg)
