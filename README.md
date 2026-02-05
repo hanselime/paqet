@@ -92,9 +92,9 @@ You'll need to find your network interface name, local IP, and the MAC address o
 2. **Find Interface device GUID:** Windows requires the Npcap device GUID. In PowerShell, run `Get-NetAdapter | Select-Object Name, InterfaceGuid`. Note the **Name** and **InterfaceGuid** of your active network interface, and format the GUID as `\Device\NPF_{GUID}`.
 3. **Find Gateway MAC Address:** Run: `arp -a <gateway_ip>`. Note the MAC address for the gateway.
 
-#### Client Configuration - SOCKS5 Proxy Mode
+#### Client Configuration - SOCKS5 and HTTP Proxy Mode
 
-The client acts as a SOCKS5 proxy server, accepting connections from applications and dynamically forwarding them through the raw TCP packets to any destination.
+The client can act as a SOCKS5 and/or HTTP proxy server, accepting connections from applications and dynamically forwarding them through the raw TCP packets to any destination.
 
 #### Example Client Configuration (`config.yaml`)
 
@@ -110,9 +110,13 @@ log:
 socks5:
   - listen: "127.0.0.1:1080" # SOCKS5 proxy listen address
 
-# Port forwarding configuration (can be used alongside SOCKS5)
+# HTTP proxy configuration (client mode)
+http:
+  - listen: "127.0.0.1:8080" # HTTP proxy listen address
+
+# Port forwarding configuration (can be used alongside SOCKS5/HTTP)
 # forward:
-#   - listen: "127.0.0.1:8080"  # Local port to listen on
+#   - listen: "127.0.0.1:8888"  # Local port to listen on
 #     target: "127.0.0.1:80"    # Target to forward to (via server)
 #     protocol: "tcp"           # Protocol (tcp/udp)
 
@@ -222,11 +226,14 @@ sudo ./paqet_darwin_arm64 run -c config.yaml
 
 ### 4. Test the Connection
 
-Once the client and server are running, test the SOCKS5 proxy:
+Once the client and server are running, test the SOCKS5 or HTTP proxy:
 
 ```bash
 # Test with curl using the SOCKS5 proxy
 curl -v https://httpbin.org/ip --proxy socks5h://127.0.0.1:1080
+
+# Test with curl using the HTTP proxy
+curl -v https://httpbin.org/ip --proxy http://127.0.0.1:8080
 ```
 
 This request will be proxied over raw TCP packets to the server, and then forwarded according to the client mode configuration. The output should show your server's public IP address, confirming the connection is working.

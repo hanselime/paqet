@@ -12,7 +12,13 @@ socks5:
     username: ""                # Optional SOCKS5 authentication
     password: ""                # Optional SOCKS5 authentication
 
-# Port forwarding configuration (can be used alongside SOCKS5)
+# HTTP proxy configuration (client mode)
+http:
+  - listen: "127.0.0.1:8080"    # HTTP proxy listen address
+    username: ""                # Optional HTTP proxy authentication
+    password: ""                # Optional HTTP proxy authentication
+
+# Port forwarding configuration (can be used alongside SOCKS5/HTTP)
 # forward:
 #   - listen: "127.0.0.1:8080"  # Local port to listen on
 #     target: "127.0.0.1:80"    # Target to forward to (via server)
