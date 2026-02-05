@@ -64,7 +64,6 @@ sudo bash -c "$(curl -Ls https://raw.githubusercontent.com/hanselime/paqet/maste
 ```
 
 **On the Client (Windows):**
-Run this command in PowerShell as **Administrator**:
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass;
 irm https://raw.githubusercontent.com/hanselime/paqet/master/scripts/configure-client.ps1 | iex
