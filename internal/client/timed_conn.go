@@ -47,16 +47,6 @@ func (tc *timedConn) createConn() (tnet.Conn, error) {
 	return conn, nil
 }
 
-func (tc *timedConn) waitConn() tnet.Conn {
-	for {
-		if c, err := tc.createConn(); err == nil {
-			return c
-		} else {
-			time.Sleep(time.Second)
-		}
-	}
-}
-
 func (tc *timedConn) sendTCPF(conn tnet.Conn) error {
 	strm, err := conn.OpenStrm()
 	if err != nil {
