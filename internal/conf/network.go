@@ -20,6 +20,11 @@ type Network struct {
 	IPv6       Addr           `yaml:"ipv6"`
 	PCAP       PCAP           `yaml:"pcap"`
 	TCP        TCP            `yaml:"tcp"`
+	IPv4TOS    int            `yaml:"ipv4_tos"`
+	IPv4DF     bool           `yaml:"ipv4_df"`
+	IPv4TTL    int            `yaml:"ipv4_ttl"`
+	IPv6TC     int            `yaml:"ipv6_tc"`
+	IPv6Hop    int            `yaml:"ipv6_hoplimit"`
 	Interface  *net.Interface `yaml:"-"`
 	Port       int            `yaml:"-"`
 }
@@ -27,6 +32,12 @@ type Network struct {
 func (n *Network) setDefaults(role string) {
 	n.PCAP.setDefaults(role)
 	n.TCP.setDefaults()
+	if n.IPv4TTL == 0 {
+		n.IPv4TTL = 64
+	}
+	if n.IPv6Hop == 0 {
+		n.IPv6Hop = 64
+	}
 }
 
 func (n *Network) validate() []error {
@@ -74,6 +85,18 @@ func (n *Network) validate() []error {
 
 	errors = append(errors, n.PCAP.validate()...)
 	errors = append(errors, n.TCP.validate()...)
+	if n.IPv4TOS < 0 || n.IPv4TOS > 255 {
+		errors = append(errors, fmt.Errorf("ipv4_tos must be between 0-255"))
+	}
+	if n.IPv6TC < 0 || n.IPv6TC > 255 {
+		errors = append(errors, fmt.Errorf("ipv6_tc must be between 0-255"))
+	}
+	if n.IPv4TTL < 1 || n.IPv4TTL > 255 {
+		errors = append(errors, fmt.Errorf("ipv4_ttl must be between 1-255"))
+	}
+	if n.IPv6Hop < 1 || n.IPv6Hop > 255 {
+		errors = append(errors, fmt.Errorf("ipv6_hoplimit must be between 1-255"))
+	}
 
 	return errors
 }

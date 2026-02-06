@@ -276,6 +276,12 @@ No encryption and no protocol header, data is transmitted in raw form without an
 
 **TCP Flag Cycling:** The `network.tcp.local_flag` and `network.tcp.remote_flag` arrays cycle through flag combinations to vary traffic patterns. Common patterns: `["PA"]` (standard data), `["S"]` (connection setup), `["A"]` (acknowledgment).
 
+**Conntrack-Friendly Preset:** For restrictive ISPs, set `network.tcp.preset: "restrictive"` to use a midstream-friendly `["PA","A"]` cycle. This avoids SYN-only handshakes while keeping ACK behavior plausible.
+
+**Keepalive & Ping:** Use `transport.kcp.keepalive_sec`, `transport.kcp.keepalive_timeout_sec`, and `transport.kcp.ping_sec` to keep sessions alive on aggressive NAT/conntrack devices. Defaults are tuned for restrictive networks.
+
+**IP Header Tuning:** If packets are being shaped or dropped, try `network.ipv4_tos`, `network.ipv4_df`, `network.ipv4_ttl`, `network.ipv6_tc`, and `network.ipv6_hoplimit` to match normal traffic profiles in your environment.
+
 # Architecture & Security Model
 
 ### The `pcap` Approach and Firewall Bypass

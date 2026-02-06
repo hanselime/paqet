@@ -7,6 +7,8 @@ import (
 type TCP struct {
 	LF_ []string `yaml:"local_flag"`
 	RF_ []string `yaml:"remote_flag"`
+	// Preset can override local/remote flags for known network behaviors.
+	Preset string `yaml:"preset"`
 	LF  []TCPF   `yaml:"-"`
 	RF  []TCPF   `yaml:"-"`
 }
@@ -16,6 +18,14 @@ type TCPF struct {
 }
 
 func (t *TCP) setDefaults() {
+	switch t.Preset {
+	case "restrictive":
+		t.LF_ = []string{"PA", "A"}
+		t.RF_ = []string{"PA", "A"}
+		return
+	case "default":
+		t.Preset = ""
+	}
 	if len(t.LF_) == 0 {
 		t.LF_ = []string{"PA"}
 	}
@@ -26,6 +36,10 @@ func (t *TCP) setDefaults() {
 
 func (t *TCP) validate() []error {
 	var errors []error
+
+	if t.Preset != "" && t.Preset != "restrictive" {
+		errors = append(errors, fmt.Errorf("tcp preset must be one of: restrictive"))
+	}
 
 	if len(t.LF_) != 0 {
 		t.LF = make([]TCPF, len(t.LF_))
