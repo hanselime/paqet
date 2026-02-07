@@ -65,7 +65,8 @@ public sealed class KcpTransport : ITransport
                 {
                     var peer = result.Source;
                     var peerPort = result.SourcePort;
-                    var sessionChannel = new RawTcpPacketChannel(_listenAddress, peer, peerPort);
+                    var localIp = ResolveLocalIPv4(peer);
+                    var sessionChannel = new RawTcpPacketChannel(localIp, peer, peerPort);
                     session = new KcpSession(conv, sessionChannel);
                     session.Start();
                     _sessions[conv] = session;
