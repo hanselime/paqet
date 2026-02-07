@@ -305,6 +305,10 @@ public sealed class KcpTransport : ITransport
 
         public void Send(ReadOnlySpan<byte> payload)
         {
+            if (_destinationPort == 0)
+            {
+                return;
+            }
             _sender.Send(_source, _destination, 40000, _destinationPort, _state, payload);
         }
 
