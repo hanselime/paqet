@@ -118,8 +118,8 @@ func (h *SendHandle) buildIPv4Header(dstIP net.IP) *layers.IPv4 {
 	*ip = layers.IPv4{
 		Version:  4,
 		IHL:      5,
-		TOS:      184,
-		TTL:      64,
+		TOS:      GenerateRealisticTOS(),      // Randomized TOS
+		TTL:      GenerateRealisticTTL(),      // Randomized TTL (48-64)
 		Flags:    layers.IPv4DontFragment,
 		Protocol: layers.IPProtocolTCP,
 		SrcIP:    h.srcIPv4,
@@ -132,8 +132,8 @@ func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
 	ip := h.ipv6Pool.Get().(*layers.IPv6)
 	*ip = layers.IPv6{
 		Version:      6,
-		TrafficClass: 184,
-		HopLimit:     64,
+		TrafficClass: GenerateRealisticTOS(),  // Randomized traffic class
+		HopLimit:     GenerateRealisticTTL(),  // Randomized hop limit (48-64)
 		NextHeader:   layers.IPProtocolTCP,
 		SrcIP:        h.srcIPv6,
 		DstIP:        dstIP,
@@ -147,28 +147,46 @@ func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
 		SrcPort: layers.TCPPort(h.srcPort),
 		DstPort: layers.TCPPort(dstPort),
 		FIN:     f.FIN, SYN: f.SYN, RST: f.RST, PSH: f.PSH, ACK: f.ACK, URG: f.URG, ECE: f.ECE, CWR: f.CWR, NS: f.NS,
-		Window: 65535,
+		Window: GenerateRealisticWindow(),  // Randomized window size
 	}
 
 	counter := atomic.AddUint32(&h.tsCounter, 1)
-	tsVal := h.time + (counter >> 3)
+	// Add variance to timestamp to avoid predictable patterns
+	tsVariance := CryptoRandUint32() % 16  // 0-15 ms variance
+	tsVal := h.time + (counter >> 3) + tsVariance
+	
 	if f.SYN {
+		// Randomize MSS value
+		mss := GenerateRealisticMSS()
+		h.synOptions[0].OptionData[0] = byte(mss >> 8)
+		h.synOptions[0].OptionData[1] = byte(mss)
+		
+		// Randomize window scale
+		h.synOptions[4].OptionData[0] = GenerateRealisticWindowScale()
+		
 		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[0:4], tsVal)
 		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[4:8], 0)
 		tcp.Options = h.synOptions
-		tcp.Seq = 1 + (counter & 0x7)
+		
+		// Add jitter to sequence number
+		seqJitter := CryptoRandUint32() & 0xFF
+		tcp.Seq = 1 + (counter & 0x7) + seqJitter
 		tcp.Ack = 0
 		if f.ACK {
 			tcp.Ack = tcp.Seq + 1
 		}
 	} else {
-		tsEcr := tsVal - (counter%200 + 50)
+		// Add variance to timestamp echo reply
+		tsEcr := tsVal - (counter%200 + 50) - (CryptoRandUint32() % 8)
 		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[0:4], tsVal)
 		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[4:8], tsEcr)
 		tcp.Options = h.ackOptions
-		seq := h.time + (counter << 7)
+		
+		// Add jitter to sequence and ack numbers
+		seqJitter := CryptoRandUint32() & 0x3F
+		seq := h.time + (counter << 7) + seqJitter
 		tcp.Seq = seq
-		tcp.Ack = seq - (counter & 0x3FF) + 1400
+		tcp.Ack = seq - (counter & 0x3FF) + 1400 + (CryptoRandUint32() & 0x1F)
 	}
 
 	return tcp

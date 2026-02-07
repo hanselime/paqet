@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"paqet/internal/conf"
+	"paqet/internal/obfs"
 	"sync/atomic"
 	"time"
 )
@@ -15,6 +16,7 @@ type PacketConn struct {
 	cfg           *conf.Network
 	sendHandle    *SendHandle
 	recvHandle    *RecvHandle
+	obfuscator    obfs.Obfuscator
 	readDeadline  atomic.Value
 	writeDeadline atomic.Value
 
@@ -71,6 +73,15 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 	if err != nil {
 		return 0, nil, err
 	}
+	
+	// Apply de-obfuscation if configured
+	if c.obfuscator != nil {
+		payload, err = c.obfuscator.Unwrap(payload)
+		if err != nil {
+			return 0, nil, fmt.Errorf("deobfuscation failed: %w", err)
+		}
+	}
+	
 	n = copy(data, payload)
 
 	return n, addr, nil
@@ -98,7 +109,16 @@ func (c *PacketConn) WriteTo(data []byte, addr net.Addr) (n int, err error) {
 		return 0, net.InvalidAddrError("invalid address")
 	}
 
-	err = c.sendHandle.Write(data, daddr)
+	// Apply obfuscation if configured
+	payload := data
+	if c.obfuscator != nil {
+		payload, err = c.obfuscator.Wrap(data)
+		if err != nil {
+			return 0, fmt.Errorf("obfuscation failed: %w", err)
+		}
+	}
+
+	err = c.sendHandle.Write(payload, daddr)
 	if err != nil {
 		return 0, err
 	}

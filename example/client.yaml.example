@@ -45,6 +45,28 @@ network:
 server:
   addr: "10.0.0.100:9999"  # CHANGE ME: paqet server address and port
 
+# Obfuscation settings (NEW - for evading DPI detection)
+obfuscation:
+  mode: "padding"  # Obfuscation mode: none, padding, tls
+  
+  # Padding obfuscation settings
+  padding:
+    min_pad: 16   # Minimum padding bytes (default: 16)
+    max_pad: 128  # Maximum padding bytes (default: 128)
+  
+  # Header randomization (enabled by default when obfuscation is active)
+  headers:
+    randomize_tos: true     # Randomize IP TOS field
+    randomize_ttl: true     # Randomize IP TTL field (48-64)
+    randomize_window: true  # Randomize TCP window size
+  
+  # Frame randomization (optional)
+  framing:
+    mode: "random"   # Framing mode: fixed, random
+    min_size: 64     # Minimum frame size
+    max_size: 1400   # Maximum frame size
+    jitter_ms: 0     # Timing jitter in milliseconds
+
 # Transport protocol configuration
 transport:
   protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
