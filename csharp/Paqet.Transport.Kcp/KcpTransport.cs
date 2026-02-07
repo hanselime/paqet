@@ -265,7 +265,7 @@ public sealed class KcpTransport : ITransport
 
     private static IPAddress ResolveLocalIPv4(IPAddress remote)
     {
-        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, System.Net.Sockets.ProtocolType.Udp);
         socket.Connect(new IPEndPoint(remote, 9));
         return ((IPEndPoint)socket.LocalEndPoint!).Address;
     }

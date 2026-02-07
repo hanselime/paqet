@@ -11,7 +11,7 @@ public sealed class RawPacketSender : IDisposable
 
     public RawPacketSender(IPAddress sourceAddress)
     {
-        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Tcp);
+        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, System.Net.Sockets.ProtocolType.Tcp);
         _socket.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.HeaderIncluded, true);
         _socket.Bind(new IPEndPoint(sourceAddress, 0));
     }

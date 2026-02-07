@@ -3,6 +3,7 @@
   <Project Path="csharp/Paqet.Socks/Paqet.Socks.csproj" />
   <Project Path="csharp/Paqet.Transport.Kcp/Paqet.Transport.Kcp.csproj" />
   <Project Path="csharp/Paqet.Transport.Quic/Paqet.Transport.Quic.csproj" />
+  <Project Path="csharp/Paqet.Socket/Paqet.Socket.csproj" />
   <Project Path="csharp/Paqet.Client/Paqet.Client.csproj" />
   <Project Path="csharp/Paqet.Server/Paqet.Server.csproj" />
 </Solution>

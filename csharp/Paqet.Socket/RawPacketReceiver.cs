@@ -9,7 +9,7 @@ public sealed class RawPacketReceiver : IDisposable
 
     public RawPacketReceiver(IPAddress listenAddress)
     {
-        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, ProtocolType.Tcp);
+        _socket = new Socket(AddressFamily.InterNetwork, SocketType.Raw, System.Net.Sockets.ProtocolType.Tcp);
         _socket.Bind(new IPEndPoint(listenAddress, 0));
     }
 
