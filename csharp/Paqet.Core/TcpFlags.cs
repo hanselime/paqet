@@ -11,3 +11,8 @@ public sealed record TcpFlags(
     bool Cwr,
     bool Ns
 );
+
+public static class TcpFlagPresets
+{
+    public static readonly TcpFlags PshAck = new(false, false, false, true, true, false, false, false, false);
+}
