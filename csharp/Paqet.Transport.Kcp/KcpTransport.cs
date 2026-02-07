@@ -23,7 +23,7 @@ public sealed class KcpTransport : ITransport
 
     public async ValueTask<IListener> ListenAsync(Address address, CancellationToken cancellationToken = default)
     {
-        var listener = new KcpListener(IPAddress.Parse(address.Host));
+        var listener = new KcpListener(IPAddress.Parse(address.Host), (ushort)address.Port);
         listener.Start();
         return await ValueTask.FromResult<IListener>(listener);
     }
@@ -31,13 +31,15 @@ public sealed class KcpTransport : ITransport
     private sealed class KcpListener : IListener
     {
         private readonly IPAddress _listenAddress;
+        private readonly ushort _listenPort;
         private readonly Channel<IConnection> _accept = Channel.CreateUnbounded<IConnection>();
         private readonly Dictionary<uint, KcpSession> _sessions = new();
         private readonly CancellationTokenSource _cts = new();
 
-        public KcpListener(IPAddress listenAddress)
+        public KcpListener(IPAddress listenAddress, ushort listenPort)
         {
             _listenAddress = listenAddress;
+            _listenPort = listenPort;
         }
 
         public void Start()
@@ -324,6 +326,11 @@ public sealed class KcpTransport : ITransport
                     continue;
                 }
                 var tcpOffset = ipHeaderLen;
+                var dstPort = (ushort)((buffer[tcpOffset + 2] << 8) | buffer[tcpOffset + 3]);
+                if (_listenPort != 0 && dstPort != _listenPort)
+                {
+                    continue;
+                }
                 var dataOffset = (buffer[tcpOffset + 12] >> 4) * 4;
                 var payloadOffset = tcpOffset + dataOffset;
                 if (payloadOffset > count)
@@ -332,6 +339,10 @@ public sealed class KcpTransport : ITransport
                 }
                 var srcIp = new IPAddress(buffer.AsSpan(12, 4));
                 var srcPort = (ushort)((buffer[tcpOffset] << 8) | buffer[tcpOffset + 1]);
+                if (srcPort == 0)
+                {
+                    continue;
+                }
                 var payload = buffer.AsSpan(payloadOffset, count - payloadOffset).ToArray();
                 return (srcIp, srcPort, payload);
             }
