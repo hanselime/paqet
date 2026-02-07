@@ -305,7 +305,7 @@ public sealed class KcpTransport : ITransport
 
         public void Send(ReadOnlySpan<byte> payload)
         {
-            if (_destinationPort == 0)
+            if (_destinationPort == 0 || IPAddress.Any.Equals(_destination) || IPAddress.Any.Equals(_source))
             {
                 return;
             }
