@@ -35,6 +35,47 @@ The system operates in three layers: raw TCP packet injection, encrypted transpo
 
 KCP provides reliable, encrypted communication optimized for high-loss or unpredictable networks, using aggressive retransmission, forward error correction, and symmetric encryption with a shared secret key. It is especially well-suited for real-time applications and gaming where low latency are critical.
 
+## Anti-Detection Features
+
+`paqet` includes advanced traffic obfuscation and randomization features designed to evade Deep Packet Inspection (DPI) systems used in restrictive network environments:
+
+### Traffic Obfuscation
+
+- **Padding Mode**: Adds 16-128 bytes of random padding to each packet with XOR-obfuscated length fields to defeat statistical length analysis
+- **TLS Mode**: Wraps traffic in TLS 1.2 Application Data record format, making it appear as encrypted HTTPS traffic
+- **Pluggable Architecture**: Easy to extend with additional obfuscation methods
+
+### Header Randomization
+
+Randomizes IP and TCP header fields to avoid fingerprinting:
+
+- **IP Headers**: TOS values (0/32/40 mimicking HTTPS), TTL (48-64 range)
+- **TCP Headers**: Window sizes (16K-65K), timestamps with variance, sequence/ack jitter
+- **TCP Options**: Randomized MSS (1380-1460) and window scale (7-9)
+
+### Randomized Framing
+
+Splits traffic into variable-sized frames (64-1400 bytes) to defeat packet length fingerprinting and statistical analysis.
+
+### Configuration
+
+Enable obfuscation in your config file:
+
+```yaml
+obfuscation:
+  mode: "tls"  # Options: none, padding, tls
+  headers:
+    randomize_tos: true
+    randomize_ttl: true
+    randomize_window: true
+  framing:
+    mode: "random"
+    min_size: 64
+    max_size: 1400
+```
+
+See example configuration files for complete details.
+
 ## Getting Started
 
 ### Prerequisites

@@ -12,6 +12,25 @@ listen:
                   # WARNING: Do not use standard ports (80, 443, etc.) as iptables rules
                   # can affect outgoing server connections.
 
+# Obfuscation settings (NEW - for evading DPI detection)
+# MUST match client obfuscation settings
+obfuscation:
+  mode: "padding"  # Obfuscation mode: none, padding, tls
+  
+  padding:
+    min_pad: 16
+    max_pad: 128
+  
+  headers:
+    randomize_tos: true
+    randomize_ttl: true
+    randomize_window: true
+  
+  framing:
+    mode: "random"
+    min_size: 64
+    max_size: 1400
+
 # Network interface settings
 network:
   interface: "eth0"                          # CHANGE ME: Network interface (eth0, ens3, en0, etc.)
