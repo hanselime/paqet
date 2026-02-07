@@ -44,7 +44,7 @@ public sealed class EthernetPacketSender : IDisposable
         var ip = new IPv4Packet(_sourceAddress, destination)
         {
             TimeToLive = 64,
-            Protocol = ProtocolType.Tcp
+            Protocol = System.Net.Sockets.ProtocolType.Tcp
         };
         ip.PayloadPacket = tcp;
 
