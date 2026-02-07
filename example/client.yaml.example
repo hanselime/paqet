@@ -6,18 +6,6 @@ role: "client"
 log:
   level: "info"  # none, debug, info, warn, error, fatal
 
-# SOCKS5 proxy configuration (client mode)
-socks5:
-  - listen: "127.0.0.1:1080"    # SOCKS5 proxy listen address
-    username: ""                # Optional SOCKS5 authentication
-    password: ""                # Optional SOCKS5 authentication
-
-# Port forwarding configuration (can be used alongside SOCKS5)
-# forward:
-#   - listen: "127.0.0.1:8080"  # Local port to listen on
-#     target: "127.0.0.1:80"    # Target to forward to (via server)
-#     protocol: "tcp"           # Protocol (tcp/udp)
-
 # Network interface settings
 network:
   interface: "en0"                          # CHANGE ME: Network interface (en0, eth0, wlan0, etc.)
@@ -41,60 +29,76 @@ network:
   # pcap:
     # sockbuf: 4194304                        # 4MB buffer (default for client)
 
-# Server connection settings
-server:
-  addr: "10.0.0.100:9999"  # CHANGE ME: paqet server address and port
+# Servers configuration
+# Define multiple servers, each with its own SOCKS5 and forwarding rules.
+servers:
+  - server:
+      addr: "10.0.0.100:9999"   # CHANGE ME: First server address
+    socks5:
+      - listen: "127.0.0.1:1080"
+        username: ""
+        password: ""
+    # forward:
+    #   - listen: "127.0.0.1:8080"
+    #     target: "127.0.0.1:80"
+    #     protocol: "tcp"
+    
+    # Transport protocol configuration for this server
+    transport:
+      protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
+      conn: 1          # Number of connections (1-256, default: 1)
+      
+      # tcpbuf: 8192   # TCP buffer size in bytes
+      # udpbuf: 4096   # UDP buffer size in bytes
 
-# Transport protocol configuration
-transport:
-  protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
-  conn: 1          # Number of connections (1-256, default: 1)
-  
-  # tcpbuf: 8192   # TCP buffer size in bytes
-  # udpbuf: 4096   # UDP buffer size in bytes
+      # KCP protocol settings
+      kcp:
+        mode: "fast"              # KCP mode: normal, fast, fast2, fast3, manual
 
-  # KCP protocol settings
-  kcp:
-    mode: "fast"              # KCP mode: normal, fast, fast2, fast3, manual
+        # Manual mode parameters (only used when mode="manual")
+        # nodelay: 1              # 0=disable, 1=enable
+                                  # Enable for lower latency & aggressive retransmission
+                                  # Disable for TCP-like conservative behavior
+                      
+        # interval: 10            # Internal update timer interval in milliseconds (10-5000ms)
+                                  # Lower values increase responsiveness but raise CPU usage
 
-    # Manual mode parameters (only used when mode="manual")
-    # nodelay: 1              # 0=disable, 1=enable
-                              # Enable for lower latency & aggressive retransmission
-                              # Disable for TCP-like conservative behavior
-                  
-    # interval: 10            # Internal update timer interval in milliseconds (10-5000ms)
-                              # Lower values increase responsiveness but raise CPU usage
+        # resend: 2               # Fast retransmit trigger (0-2)
+                                  # 0 = disabled (wait for timeout only)
+                                  # 1 = most aggressive (retransmit after 1 ACK skip)
+                                  # 2 = aggressive (retransmit after 2 ACK skips)
 
-    # resend: 2               # Fast retransmit trigger (0-2)
-                              # 0 = disabled (wait for timeout only)
-                              # 1 = most aggressive (retransmit after 1 ACK skip)
-                              # 2 = aggressive (retransmit after 2 ACK skips)
+        # nocongestion: 1         # Congestion control: 0=enabled, 1=disabled
+                                  # 0 = TCP-like fair congestion control (slow start, congestion avoidance)
+                                  # 1 = disable congestion control for maximum speed
 
-    # nocongestion: 1         # Congestion control: 0=enabled, 1=disabled
-                              # 0 = TCP-like fair congestion control (slow start, congestion avoidance)
-                              # 1 = disable congestion control for maximum speed
+        # wdelay: false           # Write batching behavior
+                                  # false = flush immediately (low latency, recommended for real-time)
+                                  # true = batch writes until next update interval (higher throughput)
+                                  # Controls when data is actually sent to the network
 
-    # wdelay: false           # Write batching behavior
-                              # false = flush immediately (low latency, recommended for real-time)
-                              # true = batch writes until next update interval (higher throughput)
-                              # Controls when data is actually sent to the network
+        # acknodelay: true        # ACK sending behavior
+                                  # true = send ACKs immediately when packets are received (lower latency)
+                                  # false = batch ACKs (more bandwidth efficient)
+                                  # Setting true reduces latency but increases bandwidth usage
 
-    # acknodelay: true        # ACK sending behavior
-                              # true = send ACKs immediately when packets are received (lower latency)
-                              # false = batch ACKs (more bandwidth efficient)
-                              # Setting true reduces latency but increases bandwidth usage
+        # mtu: 1350              # Maximum transmission unit (50-1500)
+        # rcvwnd: 512            # Receive window size (default for client)  
+        # sndwnd: 512            # Send window size (default for client)
 
-    # mtu: 1350              # Maximum transmission unit (50-1500)
-    # rcvwnd: 512            # Receive window size (default for client)  
-    # sndwnd: 512            # Send window size (default for client)
+        # Encryption settings
+        # block: "aes"                    # Encryption: aes, aes-128, aes-128-gcm, aes-192, salsa20, blowfish, twofish, cast5, 3des, tea, xtea, xor, sm4, none.
+        key: "your-secret-key-here"       # CHANGE ME: Secret key (must match server)
 
-    # Encryption settings
-    # block: "aes"                    # Encryption: aes, aes-128, aes-128-gcm, aes-192, salsa20, blowfish, twofish, cast5, 3des, tea, xtea, xor, sm4, none.
-    key: "your-secret-key-here"       # CHANGE ME: Secret key (must match server)
+        # Buffer settings (optional)
+        # smuxbuf: 4194304       # 4MB SMUX buffer
+        # streambuf: 2097152     # 2MB stream buffer
 
-    # Buffer settings (optional)
-    # smuxbuf: 4194304       # 4MB SMUX buffer
-    # streambuf: 2097152     # 2MB stream buffer
+  # - server:
+  #     addr: "10.0.0.101:9999"    # Second server
+  #   socks5:
+  #     - listen: "127.0.0.1:1081" # CHANGE ME: Must be different from the first server's SOCKS port!
+  #   transport: ...
 
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:
