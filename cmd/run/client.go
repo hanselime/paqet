@@ -8,6 +8,7 @@ import (
 	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"paqet/internal/forward"
+	phttp "paqet/internal/http"
 	"paqet/internal/socks"
 	"syscall"
 )
@@ -39,6 +40,15 @@ func startClient(cfg *conf.Conf) {
 		}
 		if err := s.Start(ctx, ss); err != nil {
 			flog.Fatalf("SOCKS5 encountered an error: %v", err)
+		}
+	}
+	for _, hh := range cfg.HTTP {
+		h, err := phttp.New(client)
+		if err != nil {
+			flog.Fatalf("Failed to initialize HTTP proxy: %v", err)
+		}
+		if err := h.Start(ctx, hh); err != nil {
+			flog.Fatalf("HTTP proxy encountered an error: %v", err)
 		}
 	}
 	for _, ff := range cfg.Forward {

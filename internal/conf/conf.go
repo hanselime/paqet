@@ -15,6 +15,7 @@ type Conf struct {
 	Log       Log       `yaml:"log"`
 	Listen    Server    `yaml:"listen"`
 	SOCKS5    []SOCKS5  `yaml:"socks5"`
+	HTTP      []HTTP    `yaml:"http"`
 	Forward   []Forward `yaml:"forward"`
 	Network   Network   `yaml:"network"`
 	Server    Server    `yaml:"server"`
@@ -52,6 +53,9 @@ func (c *Conf) setDefaults() {
 	for i := range c.SOCKS5 {
 		c.SOCKS5[i].setDefaults()
 	}
+	for i := range c.HTTP {
+		c.HTTP[i].setDefaults()
+	}
 	for i := range c.Forward {
 		c.Forward[i].setDefaults()
 	}
@@ -64,13 +68,20 @@ func (c *Conf) validate() error {
 	var allErrors []error
 
 	allErrors = append(allErrors, c.Log.validate()...)
-	if c.Role == "client" && len(c.SOCKS5) == 0 && len(c.Forward) == 0 {
-		flog.Warnf("warning: client mode enabled but no SOCKS5 or forward configurations found")
+	if c.Role == "client" && len(c.SOCKS5) == 0 && len(c.HTTP) == 0 && len(c.Forward) == 0 {
+		flog.Warnf("warning: client mode enabled but no SOCKS5, HTTP or forward configurations found")
 	}
 	for i := range c.SOCKS5 {
 		errs := c.SOCKS5[i].validate()
 		for _, err := range errs {
 			allErrors = append(allErrors, fmt.Errorf("socks5[%d] %v", i, err))
+		}
+	}
+
+	for i := range c.HTTP {
+		errs := c.HTTP[i].validate()
+		for _, err := range errs {
+			allErrors = append(allErrors, fmt.Errorf("http[%d] %v", i, err))
 		}
 	}
 
