@@ -56,7 +56,7 @@ public sealed class KcpTransport : ITransport
         {
             while (!_cts.IsCancellationRequested)
             {
-                var channel = new RawTcpPacketChannel(_listenAddress);
+                var channel = new RawTcpPacketChannel(_listenAddress, _listenPort);
                 var result = await channel.ReceiveAsync(_cts.Token).ConfigureAwait(false);
                 if (result.Payload.Length < 4)
                 {
@@ -281,12 +281,14 @@ public sealed class KcpTransport : ITransport
         private readonly IPAddress _source;
         private readonly IPAddress _destination;
         private readonly ushort _destinationPort;
+        private readonly ushort _listenPort;
 
-        public RawTcpPacketChannel(IPAddress source)
+        public RawTcpPacketChannel(IPAddress source, ushort listenPort = 0)
         {
             _source = source;
             _destination = IPAddress.Any;
             _destinationPort = 0;
+            _listenPort = listenPort;
             _sender = new RawPacketSender(source);
             _receiver = new RawPacketReceiver(source);
         }
@@ -296,6 +298,7 @@ public sealed class KcpTransport : ITransport
             _source = source;
             _destination = destination;
             _destinationPort = destinationPort;
+            _listenPort = 0;
             _sender = new RawPacketSender(source);
             _receiver = new RawPacketReceiver(source);
         }
