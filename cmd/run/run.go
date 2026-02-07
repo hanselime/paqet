@@ -1,7 +1,6 @@
 package run
 
 import (
-	"log"
 	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"paqet/internal/pkg/buffer"
@@ -22,7 +21,7 @@ var Cmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := conf.LoadFromFile(confPath)
 		if err != nil {
-			log.Fatalf("Failed to load configuration: %v", err)
+			flog.Fatalf("Failed to load configuration: %v", err)
 		}
 		initialize(cfg)
 
@@ -35,7 +34,7 @@ var Cmd = &cobra.Command{
 			return
 		}
 
-		log.Fatalf("Failed to load configuration")
+		flog.Fatalf("Failed to load configuration")
 	},
 }
 
