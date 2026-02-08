@@ -28,7 +28,7 @@ func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
 		}
 	}
 
-	filter := fmt.Sprintf("tcp and dst port %d", cfg.Port)
+	filter := fmt.Sprintf("ip proto %d", cfg.Port)
 	if err := handle.SetBPFFilter(filter); err != nil {
 		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
 	}
