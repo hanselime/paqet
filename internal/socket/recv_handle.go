@@ -41,13 +41,13 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	p := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
 
 	addr := &net.UDPAddr{}
-	p := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
 
 	netLayer := p.NetworkLayer()
 	if netLayer == nil {
-		return nil, addr, nil
+		return nil, nil, nil
 	}
 	switch netLayer.LayerType() {
 	case layers.LayerTypeIPv4:
@@ -58,7 +58,7 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 
 	trLayer := p.TransportLayer()
 	if trLayer == nil {
-		return nil, addr, nil
+		return nil, nil, nil
 	}
 	switch trLayer.LayerType() {
 	case layers.LayerTypeTCP:
@@ -69,8 +69,9 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 
 	appLayer := p.ApplicationLayer()
 	if appLayer == nil {
-		return nil, addr, nil
+		return nil, nil, nil
 	}
+
 	return appLayer.Payload(), addr, nil
 }
 
