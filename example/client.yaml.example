@@ -100,6 +100,25 @@ transport:
     # smuxbuf: 4194304       # 4MB SMUX buffer
     # streambuf: 2097152     # 2MB stream buffer
 
+# Performance and resource optimization settings (optional - will use production defaults)
+# These settings control concurrency, parallelism, and connection pooling
+# performance:
+  # max_concurrent_streams: 5000            # Maximum concurrent stream handlers (default: 10000 server, 5000 client)
+                                             # Limits goroutines to prevent resource exhaustion under high load
+                                             # Set to 0 for unlimited (not recommended in production)
+  
+  # packet_workers: 4                       # Number of parallel packet serialization workers (default: number of CPU cores)
+                                             # Distributes packet processing across multiple goroutines
+                                             # Higher values improve throughput on multi-core systems
+  
+  # stream_worker_pool_size: 1000           # Size of the worker pool for stream handling (default: 1000)
+  
+  # max_retry_attempts: 5                   # Maximum stream creation retry attempts (default: 5)
+                                             # Prevents infinite loops on connection failures
+  
+  # retry_initial_backoff_ms: 100           # Initial retry backoff in milliseconds (default: 100)
+  # retry_max_backoff_ms: 10000             # Maximum retry backoff in milliseconds (default: 10000)
+
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:
 #   dshard: 10    # Data shards for FEC
