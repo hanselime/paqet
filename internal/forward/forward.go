@@ -4,23 +4,33 @@ import (
 	"context"
 	"fmt"
 	"paqet/internal/client"
+	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"sync"
 )
 
 type Forward struct {
-	client     *client.Client
-	listenAddr string
-	targetAddr string
-	wg         sync.WaitGroup
+	client          *client.Client
+	listenAddr      string
+	targetAddr      string
+	wg              sync.WaitGroup
+	streamSemaphore chan struct{} // Limits concurrent stream processing
 }
 
-func New(client *client.Client, listenAddr, targetAddr string) (*Forward, error) {
-	return &Forward{
+func New(client *client.Client, listenAddr, targetAddr string, cfg *conf.Conf) (*Forward, error) {
+	f := &Forward{
 		client:     client,
 		listenAddr: listenAddr,
 		targetAddr: targetAddr,
-	}, nil
+	}
+	
+	// Initialize semaphore for limiting concurrent connections
+	maxStreams := cfg.Performance.MaxConcurrentStreams
+	if maxStreams > 0 {
+		f.streamSemaphore = make(chan struct{}, maxStreams)
+	}
+	
+	return f, nil
 }
 
 func (f *Forward) Start(ctx context.Context, protocol string) error {

@@ -132,9 +132,16 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		sh.srcIPv6RHWA = cfg.IPv6.Router
 	}
 
-	// Start background worker to process send queue
-	sh.wg.Add(1)
-	go sh.processQueue()
+	// Start multiple background workers to process send queue for parallelism
+	numWorkers := 1
+	if cfg.Performance != nil && cfg.Performance.PacketWorkers > 0 {
+		numWorkers = cfg.Performance.PacketWorkers
+	}
+	
+	for i := 0; i < numWorkers; i++ {
+		sh.wg.Add(1)
+		go sh.processQueue()
+	}
 
 	return sh, nil
 }

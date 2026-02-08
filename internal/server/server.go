@@ -16,14 +16,21 @@ import (
 )
 
 type Server struct {
-	cfg   *conf.Conf
-	pConn *socket.PacketConn
-	wg    sync.WaitGroup
+	cfg              *conf.Conf
+	pConn            *socket.PacketConn
+	wg               sync.WaitGroup
+	streamSemaphore  chan struct{} // Limits concurrent stream processing
 }
 
 func New(cfg *conf.Conf) (*Server, error) {
 	s := &Server{
 		cfg: cfg,
+	}
+	
+	// Initialize semaphore for limiting concurrent streams
+	maxStreams := cfg.Performance.MaxConcurrentStreams
+	if maxStreams > 0 {
+		s.streamSemaphore = make(chan struct{}, maxStreams)
 	}
 
 	return s, nil
@@ -51,7 +58,7 @@ func (s *Server) Start() error {
 		return fmt.Errorf("could not start KCP listener: %w", err)
 	}
 	defer listener.Close()
-	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
+	flog.Infof("Server started - listening for packets on :%d (max concurrent streams: %d)", s.cfg.Listen.Addr.Port, s.cfg.Performance.MaxConcurrentStreams)
 
 	s.wg.Go(func() {
 		s.listen(ctx, listener)

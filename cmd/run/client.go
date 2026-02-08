@@ -42,7 +42,7 @@ func startClient(cfg *conf.Conf) {
 		}
 	}
 	for _, ff := range cfg.Forward {
-		f, err := forward.New(client, ff.Listen.String(), ff.Target.String())
+		f, err := forward.New(client, ff.Listen.String(), ff.Target.String(), cfg)
 		if err != nil {
 			flog.Fatalf("Failed to initialize Forward: %v", err)
 		}

@@ -11,14 +11,15 @@ import (
 )
 
 type Conf struct {
-	Role      string    `yaml:"role"`
-	Log       Log       `yaml:"log"`
-	Listen    Server    `yaml:"listen"`
-	SOCKS5    []SOCKS5  `yaml:"socks5"`
-	Forward   []Forward `yaml:"forward"`
-	Network   Network   `yaml:"network"`
-	Server    Server    `yaml:"server"`
-	Transport Transport `yaml:"transport"`
+	Role        string      `yaml:"role"`
+	Log         Log         `yaml:"log"`
+	Listen      Server      `yaml:"listen"`
+	SOCKS5      []SOCKS5    `yaml:"socks5"`
+	Forward     []Forward   `yaml:"forward"`
+	Network     Network     `yaml:"network"`
+	Server      Server      `yaml:"server"`
+	Transport   Transport   `yaml:"transport"`
+	Performance Performance `yaml:"performance"`
 }
 
 func LoadFromFile(path string) (*Conf, error) {
@@ -58,6 +59,9 @@ func (c *Conf) setDefaults() {
 	c.Network.setDefaults(c.Role)
 	c.Server.setDefaults()
 	c.Transport.setDefaults(c.Role)
+	c.Performance.setDefaults(c.Role)
+	// Link performance config to network for access in lower layers
+	c.Network.Performance = &c.Performance
 }
 
 func (c *Conf) validate() error {
@@ -83,6 +87,7 @@ func (c *Conf) validate() error {
 
 	allErrors = append(allErrors, c.Network.validate()...)
 	allErrors = append(allErrors, c.Transport.validate()...)
+	allErrors = append(allErrors, c.Performance.validate()...)
 	if c.Role == "server" {
 		allErrors = append(allErrors, c.Listen.validate()...)
 	} else {
