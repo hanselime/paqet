@@ -3,30 +3,90 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	"paqet/internal/conf"
 	"paqet/internal/flog"
+	"paqet/internal/pkg/connpool"
 	"paqet/internal/socket"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
 )
 
 type Server struct {
-	cfg   *conf.Conf
-	pConn *socket.PacketConn
-	wg    sync.WaitGroup
+	cfg              *conf.Conf
+	pConn            *socket.PacketConn
+	wg               sync.WaitGroup
+	streamSemaphore  chan struct{}       // Limits concurrent stream processing
+	connPools        map[string]*connpool.ConnPool
+	connPoolsMu      sync.RWMutex
 }
 
 func New(cfg *conf.Conf) (*Server, error) {
 	s := &Server{
 		cfg: cfg,
 	}
+	
+	// Initialize semaphore for limiting concurrent streams
+	maxStreams := cfg.Performance.MaxConcurrentStreams
+	if maxStreams > 0 {
+		s.streamSemaphore = make(chan struct{}, maxStreams)
+	}
+	
+	// Initialize connection pools map if enabled
+	if cfg.Performance.EnableConnectionPooling {
+		s.connPools = make(map[string]*connpool.ConnPool)
+	}
 
 	return s, nil
+}
+
+// getConnPool gets or creates a connection pool for a specific target address
+func (s *Server) getConnPool(addr string) (*connpool.ConnPool, error) {
+	if !s.cfg.Performance.EnableConnectionPooling {
+		return nil, nil
+	}
+	
+	s.connPoolsMu.RLock()
+	pool, exists := s.connPools[addr]
+	s.connPoolsMu.RUnlock()
+	
+	if exists {
+		return pool, nil
+	}
+	
+	// Create new pool
+	s.connPoolsMu.Lock()
+	defer s.connPoolsMu.Unlock()
+	
+	// Double-check after acquiring write lock
+	pool, exists = s.connPools[addr]
+	if exists {
+		return pool, nil
+	}
+	
+	// Create connection factory
+	factory := func(ctx context.Context) (net.Conn, error) {
+		dialer := &net.Dialer{Timeout: 10 * time.Second}
+		return dialer.DialContext(ctx, "tcp", addr)
+	}
+	
+	pool, err := connpool.New(
+		s.cfg.Performance.TCPConnectionPoolSize,
+		time.Duration(s.cfg.Performance.TCPConnectionIdleTimeout)*time.Second,
+		factory,
+	)
+	if err != nil {
+		return nil, err
+	}
+	
+	s.connPools[addr] = pool
+	return pool, nil
 }
 
 func (s *Server) Start() error {
@@ -51,13 +111,34 @@ func (s *Server) Start() error {
 		return fmt.Errorf("could not start KCP listener: %w", err)
 	}
 	defer listener.Close()
-	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
+	
+	poolingStatus := "disabled"
+	if s.cfg.Performance.EnableConnectionPooling {
+		poolingStatus = fmt.Sprintf("enabled (pool size: %d, idle timeout: %ds)", 
+			s.cfg.Performance.TCPConnectionPoolSize, 
+			s.cfg.Performance.TCPConnectionIdleTimeout)
+	}
+	flog.Infof("Server started - listening for packets on :%d (max concurrent streams: %d, connection pooling: %s)", 
+		s.cfg.Listen.Addr.Port, 
+		s.cfg.Performance.MaxConcurrentStreams,
+		poolingStatus)
 
 	s.wg.Go(func() {
 		s.listen(ctx, listener)
 	})
 
 	s.wg.Wait()
+	
+	// Close all connection pools
+	if s.cfg.Performance.EnableConnectionPooling {
+		s.connPoolsMu.Lock()
+		for addr, pool := range s.connPools {
+			flog.Debugf("closing connection pool for %s", addr)
+			pool.Close()
+		}
+		s.connPoolsMu.Unlock()
+	}
+	
 	flog.Infof("Server shutdown completed")
 	return nil
 }

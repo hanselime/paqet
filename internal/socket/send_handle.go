@@ -1,8 +1,11 @@
 package socket
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
+	"math"
+	"math/rand"
 	"net"
 	"paqet/internal/conf"
 	"paqet/internal/pkg/hash"
@@ -23,23 +26,36 @@ type TCPF struct {
 	mu         sync.RWMutex
 }
 
+type sendRequest struct {
+	payload []byte
+	addr    *net.UDPAddr
+	errChan chan error
+	retries int
+}
+
 type SendHandle struct {
-	handle      *pcap.Handle
-	srcIPv4     net.IP
-	srcIPv4RHWA net.HardwareAddr
-	srcIPv6     net.IP
-	srcIPv6RHWA net.HardwareAddr
-	srcPort     uint16
-	synOptions  []layers.TCPOption
-	ackOptions  []layers.TCPOption
-	time        uint32
-	tsCounter   uint32
-	tcpF        TCPF
-	ethPool     sync.Pool
-	ipv4Pool    sync.Pool
-	ipv6Pool    sync.Pool
-	tcpPool     sync.Pool
-	bufPool     sync.Pool
+	handle         *pcap.Handle
+	srcIPv4        net.IP
+	srcIPv4RHWA    net.HardwareAddr
+	srcIPv6        net.IP
+	srcIPv6RHWA    net.HardwareAddr
+	srcPort        uint16
+	synOptions     []layers.TCPOption
+	ackOptions     []layers.TCPOption
+	time           uint32
+	tsCounter      uint32
+	tcpF           TCPF
+	ethPool        sync.Pool
+	ipv4Pool       sync.Pool
+	ipv6Pool       sync.Pool
+	tcpPool        sync.Pool
+	bufPool        sync.Pool
+	sendQueue      chan *sendRequest
+	ctx            context.Context
+	cancel         context.CancelFunc
+	wg             sync.WaitGroup
+	cfg            *conf.Network
+	droppedPackets atomic.Uint64
 }
 
 func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
@@ -69,6 +85,7 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	sh := &SendHandle{
 		handle:     handle,
 		srcPort:    uint16(cfg.Port),
@@ -76,6 +93,10 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		ackOptions: ackOptions,
 		tcpF:       TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
 		time:       uint32(time.Now().UnixNano() / int64(time.Millisecond)),
+		cfg:        cfg,
+		sendQueue:  make(chan *sendRequest, cfg.PCAP.SendQueueSize),
+		ctx:        ctx,
+		cancel:     cancel,
 		ethPool: sync.Pool{
 			New: func() any {
 				return &layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr}
@@ -110,6 +131,18 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		sh.srcIPv6 = cfg.IPv6.Addr.IP
 		sh.srcIPv6RHWA = cfg.IPv6.Router
 	}
+
+	// Start multiple background workers to process send queue for parallelism
+	numWorkers := 1
+	if cfg.Performance != nil && cfg.Performance.PacketWorkers > 0 {
+		numWorkers = cfg.Performance.PacketWorkers
+	}
+	
+	for i := 0; i < numWorkers; i++ {
+		sh.wg.Add(1)
+		go sh.processQueue()
+	}
+
 	return sh, nil
 }
 
@@ -175,6 +208,98 @@ func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
 }
 
 func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
+	// Make a copy of the payload since it may be reused by caller
+	payloadCopy := make([]byte, len(payload))
+	copy(payloadCopy, payload)
+
+	req := &sendRequest{
+		payload: payloadCopy,
+		addr:    addr,
+		errChan: make(chan error, 1),
+		retries: 0,
+	}
+
+	// Try to enqueue the request with flow control
+	select {
+	case h.sendQueue <- req:
+		// Successfully queued
+	case <-h.ctx.Done():
+		return h.ctx.Err()
+	default:
+		// Queue is full - apply back-pressure
+		h.droppedPackets.Add(1)
+		return fmt.Errorf("send queue full, packet dropped")
+	}
+
+	// Wait for the result
+	select {
+	case err := <-req.errChan:
+		return err
+	case <-h.ctx.Done():
+		return h.ctx.Err()
+	}
+}
+
+func (h *SendHandle) processQueue() {
+	defer h.wg.Done()
+
+	for {
+		select {
+		case <-h.ctx.Done():
+			return
+		case req := <-h.sendQueue:
+			err := h.executeWrite(req)
+			if err != nil && req.retries < h.cfg.PCAP.MaxRetries {
+				// Retry with exponential backoff
+				req.retries++
+				backoff := h.calculateBackoff(req.retries)
+				
+				select {
+				case <-time.After(backoff):
+					// Requeue for retry
+					select {
+					case h.sendQueue <- req:
+						continue
+					case <-h.ctx.Done():
+						if req.errChan != nil {
+							req.errChan <- h.ctx.Err()
+						}
+						return
+					default:
+						// Queue full on retry - drop
+						h.droppedPackets.Add(1)
+						if req.errChan != nil {
+							req.errChan <- fmt.Errorf("send queue full on retry: %w", err)
+						}
+					}
+				case <-h.ctx.Done():
+					if req.errChan != nil {
+						req.errChan <- h.ctx.Err()
+					}
+					return
+				}
+			} else {
+				// Send result back to caller
+				if req.errChan != nil {
+					req.errChan <- err
+				}
+			}
+		}
+	}
+}
+
+func (h *SendHandle) calculateBackoff(retries int) time.Duration {
+	// Exponential backoff with jitter
+	backoffMs := float64(h.cfg.PCAP.InitialBackoff) * math.Pow(2, float64(retries-1))
+	if backoffMs > float64(h.cfg.PCAP.MaxBackoff) {
+		backoffMs = float64(h.cfg.PCAP.MaxBackoff)
+	}
+	// Add up to 20% jitter to avoid thundering herd
+	jitter := backoffMs * 0.2 * rand.Float64()
+	return time.Duration(backoffMs+jitter) * time.Millisecond
+}
+
+func (h *SendHandle) executeWrite(req *sendRequest) error {
 	buf := h.bufPool.Get().(gopacket.SerializeBuffer)
 	ethLayer := h.ethPool.Get().(*layers.Ethernet)
 	defer func() {
@@ -183,8 +308,8 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 		h.ethPool.Put(ethLayer)
 	}()
 
-	dstIP := addr.IP
-	dstPort := uint16(addr.Port)
+	dstIP := req.addr.IP
+	dstPort := uint16(req.addr.Port)
 
 	f := h.getClientTCPF(dstIP, dstPort)
 	tcpLayer := h.buildTCPHeader(dstPort, f)
@@ -208,7 +333,7 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	}
 
 	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
-	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, tcpLayer, gopacket.Payload(payload)); err != nil {
+	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, tcpLayer, gopacket.Payload(req.payload)); err != nil {
 		return err
 	}
 	return h.handle.WritePacketData(buf.Bytes())
@@ -231,7 +356,22 @@ func (h *SendHandle) setClientTCPF(addr net.Addr, f []conf.TCPF) {
 }
 
 func (h *SendHandle) Close() {
+	if h.cancel != nil {
+		h.cancel()
+	}
+	h.wg.Wait()
+	if h.sendQueue != nil {
+		close(h.sendQueue)
+	}
 	if h.handle != nil {
 		h.handle.Close()
 	}
+}
+
+func (h *SendHandle) DroppedPackets() uint64 {
+	return h.droppedPackets.Load()
+}
+
+func (h *SendHandle) QueueDepth() int {
+	return len(h.sendQueue)
 }

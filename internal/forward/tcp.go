@@ -32,8 +32,25 @@ func (f *Forward) listenTCP(ctx context.Context) error {
 			}
 		}
 
+		// Acquire semaphore if configured (limits concurrent connections)
+		if f.streamSemaphore != nil {
+			select {
+			case f.streamSemaphore <- struct{}{}:
+				// Acquired, proceed
+			case <-ctx.Done():
+				conn.Close()
+				return nil
+			}
+		}
+
 		f.wg.Go(func() {
-			defer conn.Close()
+			defer func() {
+				conn.Close()
+				// Release semaphore
+				if f.streamSemaphore != nil {
+					<-f.streamSemaphore
+				}
+			}()
 			if err := f.handleTCPConn(ctx, conn); err != nil {
 				flog.Errorf("TCP connection %s -> %s closed with error: %v", conn.RemoteAddr(), f.targetAddr, err)
 			} else {

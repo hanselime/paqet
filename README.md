@@ -1,5 +1,7 @@
 # paqet - transport over raw packets
 
+This Version Fixed Buffer Size Problem
+
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
