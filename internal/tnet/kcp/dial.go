@@ -18,13 +18,13 @@ func Dial(addr *net.UDPAddr, cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Conn
 		return nil, fmt.Errorf("connection attempt failed: %v", err)
 	}
 	aplConf(conn, cfg)
-	flog.Debugf("KCP connection established, creating smux session")
+	flog.Debugf("KCP connection created, creating smux session")
 
 	sess, err := smux.Client(conn, smuxConf(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create smux session: %w", err)
 	}
 
-	flog.Debugf("smux session established successfully")
+	flog.Debugf("smux session created successfully")
 	return &Conn{pConn, conn, sess}, nil
 }

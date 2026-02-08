@@ -16,7 +16,13 @@ jobs:
             image: golang:1.25
         strategy:
             matrix:
-                goarch: [amd64, arm64]
+                include:
+                    - goarch: amd64
+                      filename: amd64
+                    - goarch: arm64
+                      filename: arm64
+                    - goarch: arm
+                      filename: arm32
 
         steps:
             - name: Setup Build Environment
@@ -27,6 +33,10 @@ jobs:
                     dpkg --add-architecture arm64
                     apt-get update
                     apt-get install -y --no-install-recommends gcc-aarch64-linux-gnu libc6-dev-arm64-cross libpcap-dev:arm64
+                  elif [ "${{ matrix.goarch }}" = "arm" ]; then
+                    dpkg --add-architecture armhf
+                    apt-get update
+                    apt-get install -y --no-install-recommends gcc-arm-linux-gnueabihf libc6-dev-armhf-cross libpcap-dev:armhf
                   else
                     apt-get install -y --no-install-recommends build-essential libpcap-dev
                   fi
@@ -64,6 +74,9 @@ jobs:
                   # Set the C compiler for cross-compilation
                   if [ "$GOARCH" = "arm64" ]; then
                     export CC=aarch64-linux-gnu-gcc
+                  elif [ "$GOARCH" = "arm" ]; then
+                    export CC=arm-linux-gnueabihf-gcc
+                    export GOARM=7
                   fi
 
                   go build -v -a -trimpath \
@@ -73,11 +86,11 @@ jobs:
                     -X 'paqet/cmd/version.GitCommit=${GIT_COMMIT}' \
                     -X 'paqet/cmd/version.GitTag=${GIT_TAG}' \
                     -X 'paqet/cmd/version.BuildTime=${BUILD_TIME}'" \
-                    -o paqet_linux_${{ matrix.goarch }} ./cmd/main.go
+                    -o paqet_linux_${{ matrix.filename }} ./cmd/main.go
 
-                  chmod +x paqet_linux_${{ matrix.goarch }}
-                  tar -czvf dist/paqet-linux-${{ matrix.goarch }}-${{ steps.ref_id.outputs.ref }}.tar.gz \
-                    paqet_linux_${{ matrix.goarch }} \
+                  chmod +x paqet_linux_${{ matrix.filename }}
+                  tar -czvf dist/paqet-linux-${{ matrix.filename }}-${{ steps.ref_id.outputs.ref }}.tar.gz \
+                    paqet_linux_${{ matrix.filename }} \
                     README.md \
                     example/client.yaml.example \
                     example/server.yaml.example
@@ -85,8 +98,8 @@ jobs:
             - name: Upload Artifact
               uses: actions/upload-artifact@v4
               with:
-                  name: paqet-linux-${{ matrix.goarch }}
-                  path: dist/paqet-linux-${{ matrix.goarch }}-${{ steps.ref_id.outputs.ref }}.tar.gz
+                  name: paqet-linux-${{ matrix.filename }}
+                  path: dist/paqet-linux-${{ matrix.filename }}-${{ steps.ref_id.outputs.ref }}.tar.gz
                   retention-days: 1
 
     build-windows:

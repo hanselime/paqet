@@ -28,6 +28,6 @@ func (c *Client) TCP(addr string) (tnet.Strm, error) {
 		return nil, err
 	}
 
-	flog.Debugf("TCP stream %d established for %s", strm.SID(), addr)
+	flog.Debugf("TCP stream %d created for %s", strm.SID(), addr)
 	return strm, nil
 }

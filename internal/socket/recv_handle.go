@@ -37,7 +37,7 @@ func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
 }
 
 func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
-	data, _, err := h.handle.ZeroCopyReadPacketData()
+	data, _, err := h.handle.ReadPacketData()
 	if err != nil {
 		return nil, nil, err
 	}

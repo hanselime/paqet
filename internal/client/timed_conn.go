@@ -33,7 +33,7 @@ func (tc *timedConn) createConn() (tnet.Conn, error) {
 	netCfg := tc.cfg.Network
 	pConn, err := socket.New(tc.ctx, &netCfg)
 	if err != nil {
-		return nil, fmt.Errorf("could not create raw packet conn: %w", err)
+		return nil, fmt.Errorf("could not create packet conn: %w", err)
 	}
 
 	conn, err := kcp.Dial(tc.cfg.Server.Addr, tc.cfg.Transport.KCP, pConn)
@@ -45,16 +45,6 @@ func (tc *timedConn) createConn() (tnet.Conn, error) {
 		return nil, err
 	}
 	return conn, nil
-}
-
-func (tc *timedConn) waitConn() tnet.Conn {
-	for {
-		if c, err := tc.createConn(); err == nil {
-			return c
-		} else {
-			time.Sleep(time.Second)
-		}
-	}
 }
 
 func (tc *timedConn) sendTCPF(conn tnet.Conn) error {

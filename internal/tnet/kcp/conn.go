@@ -44,14 +44,14 @@ func (c *Conn) Ping(wait bool) error {
 		p := protocol.Proto{Type: protocol.PPING}
 		err = p.Write(strm)
 		if err != nil {
-			return fmt.Errorf("connection test failed: %v", err)
+			return fmt.Errorf("strm ping write failed: %v", err)
 		}
 		err = p.Read(strm)
 		if err != nil {
-			return fmt.Errorf("connection test failed: %v", err)
+			return fmt.Errorf("strm ping read failed: %v", err)
 		}
 		if p.Type != protocol.PPONG {
-			return fmt.Errorf("connection test failed: %v", err)
+			return fmt.Errorf("strm pong failed: %v", err)
 		}
 	}
 	return nil
