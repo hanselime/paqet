@@ -1,0 +1,59 @@
+# paqet Client Configuration Example with QUIC
+# This configuration uses QUIC protocol optimized for high bandwidth and many connections
+role: "client"
+
+# Logging configuration
+log:
+  level: "info"  # none, debug, info, warn, error, fatal
+
+# SOCKS5 proxy configuration (client mode)
+socks5:
+  - listen: "127.0.0.1:1080"    # SOCKS5 proxy listen address
+    username: ""                # Optional SOCKS5 authentication
+    password: ""                # Optional SOCKS5 authentication
+
+# Network interface settings
+network:
+  interface: "en0"                          # CHANGE ME: Network interface (en0, eth0, wlan0, etc.)
+  # guid: "\Device\NPF_{...}"               # Windows only (Npcap).
+
+  # IPv4 configuration
+  ipv4:
+    addr: "192.168.1.100:0"                 # CHANGE ME: Local IP (use port 0 for random port)
+    router_mac: "aa:bb:cc:dd:ee:ff"         # CHANGE ME: Gateway/router MAC address
+
+  tcp:
+    local_flag: ["PA"]                      # Local TCP flags (Push+Ack default)
+    remote_flag: ["PA"]                     # Remote TCP flags (Push+Ack default)
+
+# Server connection settings
+server:
+  addr: "10.0.0.100:9999"  # CHANGE ME: paqet server address and port
+
+# Transport protocol configuration - QUIC
+transport:
+  protocol: "quic"  # Using QUIC for high performance
+  conn: 1           # Number of connections (1-256, default: 1)
+
+  # QUIC protocol settings
+  quic:
+    # Connection settings
+    max_idle_timeout: 30              # Maximum idle timeout in seconds
+    max_incoming_streams: 5000        # Max concurrent incoming streams (higher for better concurrency)
+    max_incoming_uni_streams: 5000    # Max concurrent incoming unidirectional streams
+    
+    # Flow control settings (optimized for high bandwidth)
+    # These are already optimized defaults, but can be increased further for very high bandwidth
+    initial_stream_receive_window: 6291456      # 6 MB
+    max_stream_receive_window: 25165824         # 24 MB
+    initial_connection_receive_window: 15728640 # 15 MB
+    max_connection_receive_window: 62914560     # 60 MB
+    
+    # Performance settings
+    enable_0rtt: true                 # Enable 0-RTT for faster reconnections
+    keep_alive_period: 10             # Keep-alive period in seconds
+    
+    # TLS settings - Important for QUIC!
+    insecure_skip_verify: true        # Set to true for self-signed certs (testing)
+                                      # Set to false in production with proper certificates
+    # server_name: "example.com"      # Optional: specify server name for TLS verification

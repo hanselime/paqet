@@ -5,7 +5,7 @@ This Version Fixed Buffer Size Problem
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-`paqet` is a bidirectional packet level proxy built using raw sockets. It forwards traffic from a local client to a remote server, bypassing the host operating system's TCP/IP stack, using KCP for secure, reliable transport.
+`paqet` is a bidirectional packet level proxy built using raw sockets. It forwards traffic from a local client to a remote server, bypassing the host operating system's TCP/IP stack, using KCP or QUIC for secure, reliable transport.
 
 > **⚠️ Development Status Notice**
 >
@@ -13,11 +13,15 @@ This Version Fixed Buffer Size Problem
 
 ## How It Works
 
-`paqet` captures packets using `pcap` and injects crafted TCP packets containing encrypted transport data. KCP provides reliable, encrypted communication optimized for high-loss networks using aggressive retransmission, forward error correction, and symmetric encryption.
+`paqet` captures packets using `pcap` and injects crafted TCP packets containing encrypted transport data. You can choose between two transport protocols:
+
+- **KCP**: Reliable UDP-based protocol optimized for high-loss networks with aggressive retransmission and forward error correction
+- **QUIC**: Modern IETF standard protocol optimized for high bandwidth and many concurrent connections with 0-RTT support
 
 ```
 [Your App] <------> [paqet Client] <===== Raw TCP Packet =====> [paqet Server] <------> [Target Server]
 (e.g. curl)        (localhost:1080)        (Internet)          (Public IP:PORT)     (e.g. https://httpbin.org)
+                                      (KCP or QUIC transport)
 ```
 
 `paqet` use cases include bypassing firewalls that detect standard handshake protocols and kernel-level connection tracking, as well as network security research. While more complex to configure than general-purpose VPN solutions, it offers granular control at the packet level.
@@ -229,10 +233,21 @@ paqet uses unified YAML configuration for client and server. The `role` field mu
 
 **For complete parameter documentation, see the example files:**
 
-- [`example/client.yaml.example`](example/client.yaml.example) - Client configuration reference
-- [`example/server.yaml.example`](example/server.yaml.example) - Server configuration reference
+- [`example/client.yaml.example`](example/client.yaml.example) - Client configuration reference (KCP)
+- [`example/server.yaml.example`](example/server.yaml.example) - Server configuration reference (KCP)
+- [`example/client-quic.yaml.example`](example/client-quic.yaml.example) - Client configuration with QUIC
+- [`example/server-quic.yaml.example`](example/server-quic.yaml.example) - Server configuration with QUIC
 
-### Encryption Modes
+### Transport Protocols
+
+paqet supports two transport protocols:
+
+- **KCP** - UDP-based protocol optimized for lossy networks. Best for high packet loss scenarios and real-time applications.
+- **QUIC** - Modern IETF standard protocol optimized for high bandwidth and many concurrent connections. Best for production deployments with good network conditions.
+
+**See [`docs/QUIC.md`](docs/QUIC.md) for detailed QUIC documentation, performance tuning, and migration guide.**
+
+### Encryption Modes (KCP Only)
 
 The `transport.kcp.block` parameter determines the encryption method.
 

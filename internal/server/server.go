@@ -16,6 +16,7 @@ import (
 	"paqet/internal/socket"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
+	"paqet/internal/tnet/quic"
 )
 
 type Server struct {
@@ -106,9 +107,20 @@ func (s *Server) Start() error {
 	}
 	s.pConn = pConn
 
-	listener, err := kcp.Listen(s.cfg.Transport.KCP, pConn)
-	if err != nil {
-		return fmt.Errorf("could not start KCP listener: %w", err)
+	var listener tnet.Listener
+	switch s.cfg.Transport.Protocol {
+	case "kcp":
+		listener, err = kcp.Listen(s.cfg.Transport.KCP, pConn)
+		if err != nil {
+			return fmt.Errorf("could not start KCP listener: %w", err)
+		}
+	case "quic":
+		listener, err = quic.Listen(s.cfg.Transport.QUIC, pConn)
+		if err != nil {
+			return fmt.Errorf("could not start QUIC listener: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported transport protocol: %s", s.cfg.Transport.Protocol)
 	}
 	defer listener.Close()
 	
@@ -118,8 +130,9 @@ func (s *Server) Start() error {
 			s.cfg.Performance.TCPConnectionPoolSize, 
 			s.cfg.Performance.TCPConnectionIdleTimeout)
 	}
-	flog.Infof("Server started - listening for packets on :%d (max concurrent streams: %d, connection pooling: %s)", 
-		s.cfg.Listen.Addr.Port, 
+	flog.Infof("Server started - listening for packets on :%d (protocol: %s, max concurrent streams: %d, connection pooling: %s)", 
+		s.cfg.Listen.Addr.Port,
+		s.cfg.Transport.Protocol,
 		s.cfg.Performance.MaxConcurrentStreams,
 		poolingStatus)
 

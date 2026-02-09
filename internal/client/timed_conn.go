@@ -8,6 +8,7 @@ import (
 	"paqet/internal/socket"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
+	"paqet/internal/tnet/quic"
 	"time"
 )
 
@@ -36,7 +37,16 @@ func (tc *timedConn) createConn() (tnet.Conn, error) {
 		return nil, fmt.Errorf("could not create packet conn: %w", err)
 	}
 
-	conn, err := kcp.Dial(tc.cfg.Server.Addr, tc.cfg.Transport.KCP, pConn)
+	var conn tnet.Conn
+	switch tc.cfg.Transport.Protocol {
+	case "kcp":
+		conn, err = kcp.Dial(tc.cfg.Server.Addr, tc.cfg.Transport.KCP, pConn)
+	case "quic":
+		conn, err = quic.Dial(tc.cfg.Server.Addr, tc.cfg.Transport.QUIC, pConn)
+	default:
+		return nil, fmt.Errorf("unsupported transport protocol: %s", tc.cfg.Transport.Protocol)
+	}
+	
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ type Transport struct {
 	TCPBuf   int    `yaml:"tcpbuf"`
 	UDPBuf   int    `yaml:"udpbuf"`
 	KCP      *KCP   `yaml:"kcp"`
+	QUIC     *QUIC  `yaml:"quic"`
 }
 
 func (t *Transport) setDefaults(role string) {
@@ -34,13 +35,15 @@ func (t *Transport) setDefaults(role string) {
 	switch t.Protocol {
 	case "kcp":
 		t.KCP.setDefaults(role)
+	case "quic":
+		t.QUIC.setDefaults(role)
 	}
 }
 
 func (t *Transport) validate() []error {
 	var errors []error
 
-	validProtocols := []string{"kcp"}
+	validProtocols := []string{"kcp", "quic"}
 	if !slices.Contains(validProtocols, t.Protocol) {
 		errors = append(errors, fmt.Errorf("transport protocol must be one of: %v", validProtocols))
 	}
@@ -52,6 +55,8 @@ func (t *Transport) validate() []error {
 	switch t.Protocol {
 	case "kcp":
 		errors = append(errors, t.KCP.validate()...)
+	case "quic":
+		errors = append(errors, t.QUIC.validate()...)
 	}
 
 	return errors
