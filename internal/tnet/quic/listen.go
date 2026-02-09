@@ -57,27 +57,32 @@ func (l *Listener) Accept() (tnet.Conn, error) {
 		ctx = context.Background()
 	}
 
-	// Add timeout to Accept to allow periodic context checks
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
+	// Accept with timeout to allow periodic context checks
+	// Use a loop instead of recursion to prevent stack overflow under sustained timeouts
+	for {
+		// Add timeout to Accept to allow periodic context checks
+		acceptCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 
-	qconn, err := l.listener.Accept(ctx)
-	if err != nil {
-		// If timeout, check if parent context was cancelled
-		if err == context.DeadlineExceeded && l.ctx != nil {
-			select {
-			case <-l.ctx.Done():
-				return nil, l.ctx.Err()
-			default:
-				// Parent context not cancelled, just a timeout, retry
-				return l.Accept()
+		qconn, err := l.listener.Accept(acceptCtx)
+		cancel() // Clean up context immediately
+
+		if err != nil {
+			// If timeout, check if parent context was cancelled
+			if err == context.DeadlineExceeded {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				default:
+					// Parent context not cancelled, just a timeout, continue loop
+					continue
+				}
 			}
+			return nil, err
 		}
-		return nil, err
-	}
 
-	// Pass listener's context to connection for proper shutdown propagation
-	return newConnWithContext(qconn, l.ctx), nil
+		// Pass listener's context to connection for proper shutdown propagation
+		return newConnWithContext(qconn, l.ctx), nil
+	}
 }
 
 func (l *Listener) Close() error {

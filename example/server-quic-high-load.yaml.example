@@ -34,6 +34,8 @@ transport:
     # Connection settings - INCREASED FOR HIGH LOAD
     max_idle_timeout: 60                # Increased to 60s to prevent premature disconnections
     max_incoming_streams: 50000         # Very high limit for many concurrent streams
+                                        # WARNING: Each stream consumes memory (~4-16KB per stream)
+                                        # Monitor memory usage and adjust based on available RAM
     max_incoming_uni_streams: 50000     # Very high limit for unidirectional streams
     
     # Flow control settings - OPTIMIZED FOR HIGH BANDWIDTH AND MANY CONNECTIONS

@@ -30,6 +30,9 @@ type QUIC struct {
 	// Keep-alive settings
 	KeepAlivePeriod int `yaml:"keep_alive_period"` // Keep-alive period in seconds (default: 10)
 
+	// Timeout settings for operations (not exposed to YAML, uses hard-coded defaults)
+	// OpenStrm timeout: 30 seconds, Accept timeout: 5 seconds (with retry loop)
+
 	// TLS settings
 	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"` // Skip TLS verification (default: false, set true for testing)
 	ServerName         string `yaml:"server_name"`          // Server name for TLS verification
@@ -98,7 +101,8 @@ func (q *QUIC) setDefaults(role string) {
 	}
 
 	if q.KeepAlivePeriod == 0 {
-		// Shorter keep-alive for better detection of dead connections
+		// Keep-alive at 15 seconds for better detection of dead connections
+		// (increased from 10s default to reduce overhead while maintaining detection)
 		q.KeepAlivePeriod = 15
 	}
 
