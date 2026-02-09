@@ -98,3 +98,33 @@ func TestPacketConnLocalAddrNotNil(t *testing.T) {
 		t.Error("LocalAddr() must not return nil")
 	}
 }
+
+func TestPacketConnSetReadBuffer(t *testing.T) {
+	// Test that SetReadBuffer succeeds for compatibility with quic-go
+	pc := &PacketConn{
+		cfg: &conf.Network{
+			Port: 1234,
+		},
+	}
+
+	// Should return nil (success) even though it's a no-op
+	err := pc.SetReadBuffer(8388608)
+	if err != nil {
+		t.Errorf("SetReadBuffer() returned error: %v, want nil", err)
+	}
+}
+
+func TestPacketConnSetWriteBuffer(t *testing.T) {
+	// Test that SetWriteBuffer succeeds for compatibility with quic-go
+	pc := &PacketConn{
+		cfg: &conf.Network{
+			Port: 1234,
+		},
+	}
+
+	// Should return nil (success) even though it's a no-op
+	err := pc.SetWriteBuffer(8388608)
+	if err != nil {
+		t.Errorf("SetWriteBuffer() returned error: %v, want nil", err)
+	}
+}

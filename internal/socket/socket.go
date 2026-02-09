@@ -172,3 +172,21 @@ func (c *PacketConn) SetDSCP(dscp int) error {
 func (c *PacketConn) SetClientTCPF(addr net.Addr, f []conf.TCPF) {
 	c.sendHandle.setClientTCPF(addr, f)
 }
+
+// SetReadBuffer implements the buffer size setter for compatibility with quic-go.
+// Since PacketConn uses pcap instead of UDP sockets, this is a no-op.
+func (c *PacketConn) SetReadBuffer(bytes int) error {
+	// PacketConn uses pcap handles which have their own buffer management
+	// via PCAP.Sockbuf configuration. We return nil to indicate success
+	// to quic-go without actually modifying any buffer.
+	return nil
+}
+
+// SetWriteBuffer implements the buffer size setter for compatibility with quic-go.
+// Since PacketConn uses pcap instead of UDP sockets, this is a no-op.
+func (c *PacketConn) SetWriteBuffer(bytes int) error {
+	// PacketConn uses pcap handles which have their own buffer management
+	// via PCAP.Sockbuf configuration. We return nil to indicate success
+	// to quic-go without actually modifying any buffer.
+	return nil
+}
