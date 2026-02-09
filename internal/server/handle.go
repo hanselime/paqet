@@ -34,7 +34,9 @@ func (s *Server) handleConn(ctx context.Context, conn tnet.Conn) {
 			}
 		}
 		
-		s.wg.Go(func() {
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
 			defer func() {
 				strm.Close()
 				// Release semaphore
@@ -47,7 +49,7 @@ func (s *Server) handleConn(ctx context.Context, conn tnet.Conn) {
 			} else {
 				flog.Debugf("stream %d from %s closed", strm.SID(), strm.RemoteAddr())
 			}
-		})
+		}()
 	}
 }
 
