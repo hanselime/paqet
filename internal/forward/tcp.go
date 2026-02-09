@@ -43,7 +43,9 @@ func (f *Forward) listenTCP(ctx context.Context) error {
 			}
 		}
 
-		f.wg.Go(func() {
+		f.wg.Add(1)
+		go func() {
+			defer f.wg.Done()
 			defer func() {
 				conn.Close()
 				// Release semaphore
@@ -56,7 +58,7 @@ func (f *Forward) listenTCP(ctx context.Context) error {
 			} else {
 				flog.Debugf("TCP connection %s -> %s closed", conn.RemoteAddr(), f.targetAddr)
 			}
-		})
+		}()
 	}
 }
 

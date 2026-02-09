@@ -136,9 +136,11 @@ func (s *Server) Start() error {
 		s.cfg.Performance.MaxConcurrentStreams,
 		poolingStatus)
 
-	s.wg.Go(func() {
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
 		s.listen(ctx, listener)
-	})
+	}()
 
 	s.wg.Wait()
 	
@@ -174,9 +176,11 @@ func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
 		}
 		flog.Infof("accepted new connection from %s (local: %s)", conn.RemoteAddr(), conn.LocalAddr())
 
-		s.wg.Go(func() {
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
 			defer conn.Close()
 			s.handleConn(ctx, conn)
-		})
+		}()
 	}
 }
