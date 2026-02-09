@@ -175,7 +175,7 @@ func (c *PacketConn) SetClientTCPF(addr net.Addr, f []conf.TCPF) {
 
 // SetReadBuffer implements the buffer size setter for compatibility with quic-go.
 // Since PacketConn uses pcap instead of UDP sockets, this is a no-op.
-func (c *PacketConn) SetReadBuffer(bytes int) error {
+func (c *PacketConn) SetReadBuffer(size int) error {
 	// PacketConn uses pcap handles which have their own buffer management
 	// via PCAP.Sockbuf configuration. We return nil to indicate success
 	// to quic-go without actually modifying any buffer.
@@ -184,7 +184,7 @@ func (c *PacketConn) SetReadBuffer(bytes int) error {
 
 // SetWriteBuffer implements the buffer size setter for compatibility with quic-go.
 // Since PacketConn uses pcap instead of UDP sockets, this is a no-op.
-func (c *PacketConn) SetWriteBuffer(bytes int) error {
+func (c *PacketConn) SetWriteBuffer(size int) error {
 	// PacketConn uses pcap handles which have their own buffer management
 	// via PCAP.Sockbuf configuration. We return nil to indicate success
 	// to quic-go without actually modifying any buffer.
