@@ -1,0 +1,61 @@
+# paqet Server Configuration Example with QUIC
+# This configuration uses QUIC protocol optimized for high bandwidth and many connections
+role: "server"
+
+# Logging configuration
+log:
+  level: "info"  # none, debug, info, warn, error, fatal
+
+# Server listen configuration
+listen:
+  addr: ":9999"   # CHANGE ME: Server listen port (must match network.ipv4.addr port)
+
+# Network interface settings
+network:
+  interface: "eth0"                          # CHANGE ME: Network interface (eth0, ens3, en0, etc.)
+  # guid: "\Device\NPF_{...}"                # Windows only (Npcap).
+
+  # IPv4 configuration
+  ipv4:
+    addr: "10.0.0.100:9999"                  # CHANGE ME: Server IPv4 and port (port must match listen.addr)
+    router_mac: "aa:bb:cc:dd:ee:ff"          # CHANGE ME: Gateway/router MAC address
+
+  # TCP flags for packet crafting
+  tcp:
+    local_flag: ["PA"]                       # Local TCP flags (Push+Ack default)
+
+# Transport protocol configuration - QUIC
+transport:
+  protocol: "quic"  # Using QUIC for high performance
+  conn: 1           # Number of connections (1-256, default: 1)
+
+  # QUIC protocol settings
+  quic:
+    # Connection settings
+    max_idle_timeout: 30              # Maximum idle timeout in seconds
+    max_incoming_streams: 10000       # Max concurrent incoming streams (high for server)
+    max_incoming_uni_streams: 10000   # Max concurrent incoming unidirectional streams
+    
+    # Flow control settings (optimized for high bandwidth)
+    # These defaults are already optimized, but can be tuned based on your needs
+    initial_stream_receive_window: 6291456      # 6 MB
+    max_stream_receive_window: 25165824         # 24 MB
+    initial_connection_receive_window: 15728640 # 15 MB
+    max_connection_receive_window: 62914560     # 60 MB
+    
+    # Performance settings
+    enable_0rtt: true                 # Enable 0-RTT for faster client reconnections
+    keep_alive_period: 10             # Keep-alive period in seconds
+    
+    # Note: Server automatically generates a self-signed TLS certificate
+
+# Important: Server Firewall Configuration Required!
+# 
+# Since paqet uses pcap to bypass standard firewalls, you MUST configure
+# iptables on the server to prevent kernel interference:
+#
+# sudo iptables -t raw -A PREROUTING -p tcp --dport 9999 -j NOTRACK
+# sudo iptables -t raw -A OUTPUT -p tcp --sport 9999 -j NOTRACK  
+# sudo iptables -t mangle -A OUTPUT -p tcp --sport 9999 --tcp-flags RST RST -j DROP
+#
+# Replace 9999 with your actual listen port.

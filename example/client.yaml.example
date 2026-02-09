@@ -51,13 +51,13 @@ server:
 
 # Transport protocol configuration
 transport:
-  protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
+  protocol: "kcp"  # Transport protocol: "kcp" or "quic"
   conn: 1          # Number of connections (1-256, default: 1)
   
   # tcpbuf: 8192   # TCP buffer size in bytes
   # udpbuf: 4096   # UDP buffer size in bytes
 
-  # KCP protocol settings
+  # KCP protocol settings (used when protocol: "kcp")
   kcp:
     mode: "fast"              # KCP mode: normal, fast, fast2, fast3, manual
 
@@ -99,6 +99,29 @@ transport:
     # Buffer settings (optional)
     # smuxbuf: 4194304       # 4MB SMUX buffer
     # streambuf: 2097152     # 2MB stream buffer
+
+  # QUIC protocol settings (used when protocol: "quic")
+  # QUIC is optimized for high bandwidth and many concurrent connections
+  # quic:
+    # Connection settings
+    # max_idle_timeout: 30              # Maximum idle timeout in seconds (default: 30)
+    # max_incoming_streams: 1000        # Max concurrent incoming streams (default: 1000 client, 10000 server)
+    # max_incoming_uni_streams: 1000    # Max concurrent incoming unidirectional streams (default: 1000 client, 10000 server)
+    
+    # Flow control settings (optimized for high bandwidth)
+    # initial_stream_receive_window: 6291456      # Initial stream receive window: 6 MB (default)
+    # max_stream_receive_window: 25165824         # Maximum stream receive window: 24 MB (default)
+    # initial_connection_receive_window: 15728640 # Initial connection receive window: 15 MB (default)
+    # max_connection_receive_window: 62914560     # Maximum connection receive window: 60 MB (default)
+    
+    # Performance settings
+    # enable_datagrams: false           # Enable QUIC datagram support (default: false)
+    # enable_0rtt: true                 # Enable 0-RTT for faster reconnections (default: true)
+    # keep_alive_period: 10             # Keep-alive period in seconds (default: 10)
+    
+    # TLS settings
+    # insecure_skip_verify: true        # Skip TLS verification (default: false, set true for self-signed certs)
+    # server_name: ""                   # Server name for TLS verification (default: server IP)
 
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:
