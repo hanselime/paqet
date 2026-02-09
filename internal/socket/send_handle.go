@@ -29,17 +29,23 @@ type SendHandle struct {
 	srcIPv4RHWA net.HardwareAddr
 	srcIPv6     net.IP
 	srcIPv6RHWA net.HardwareAddr
-	srcPort     uint16
-	synOptions  []layers.TCPOption
-	ackOptions  []layers.TCPOption
-	time        uint32
-	tsCounter   uint32
-	tcpF        TCPF
-	ethPool     sync.Pool
-	ipv4Pool    sync.Pool
-	ipv6Pool    sync.Pool
-	tcpPool     sync.Pool
-	bufPool     sync.Pool
+
+	ipProtocol int
+
+	srcPort    uint16
+	synOptions []layers.TCPOption
+	ackOptions []layers.TCPOption
+	time       uint32
+	tsCounter  uint32
+	tcpF       TCPF
+
+	ethPool  sync.Pool
+	ipv4Pool sync.Pool
+	ipv6Pool sync.Pool
+	tcpPool  sync.Pool
+	bufPool  sync.Pool
+
+	Write func(payload []byte, addr *net.UDPAddr) error
 }
 
 func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
@@ -70,12 +76,16 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 	}
 
 	sh := &SendHandle{
-		handle:     handle,
-		srcPort:    uint16(cfg.Port),
+		handle: handle,
+
+		ipProtocol: cfg.IP.Protocol,
+
+		srcPort:    uint16(cfg.LPort),
 		synOptions: synOptions,
 		ackOptions: ackOptions,
 		tcpF:       TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
 		time:       uint32(time.Now().UnixNano() / int64(time.Millisecond)),
+
 		ethPool: sync.Pool{
 			New: func() any {
 				return &layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr}
@@ -110,31 +120,39 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		sh.srcIPv6 = cfg.IPv6.Addr.IP
 		sh.srcIPv6RHWA = cfg.IPv6.Router
 	}
+
+	switch cfg.IP.Protocol {
+	case 6:
+		sh.Write = sh.WriteTCP
+	default:
+		sh.Write = sh.WriteIP
+	}
+
 	return sh, nil
 }
 
-func (h *SendHandle) buildIPv4Header(dstIP net.IP) *layers.IPv4 {
+func (h *SendHandle) buildIPv4Header(dstIP net.IP, protocol int) *layers.IPv4 {
 	ip := h.ipv4Pool.Get().(*layers.IPv4)
 	*ip = layers.IPv4{
 		Version:  4,
 		IHL:      5,
 		TOS:      184,
-		TTL:      64,
+		TTL:      128,
 		Flags:    layers.IPv4DontFragment,
-		Protocol: layers.IPProtocolTCP,
+		Protocol: layers.IPProtocol(protocol),
 		SrcIP:    h.srcIPv4,
 		DstIP:    dstIP,
 	}
 	return ip
 }
 
-func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
+func (h *SendHandle) buildIPv6Header(dstIP net.IP, protocol int) *layers.IPv6 {
 	ip := h.ipv6Pool.Get().(*layers.IPv6)
 	*ip = layers.IPv6{
 		Version:      6,
 		TrafficClass: 184,
-		HopLimit:     64,
-		NextHeader:   layers.IPProtocolTCP,
+		HopLimit:     128,
+		NextHeader:   layers.IPProtocol(protocol),
 		SrcIP:        h.srcIPv6,
 		DstIP:        dstIP,
 	}
@@ -174,7 +192,41 @@ func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
 	return tcp
 }
 
-func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
+func (h *SendHandle) WriteIP(payload []byte, addr *net.UDPAddr) error {
+	buf := h.bufPool.Get().(gopacket.SerializeBuffer)
+	ethLayer := h.ethPool.Get().(*layers.Ethernet)
+	defer func() {
+		buf.Clear()
+		h.bufPool.Put(buf)
+		h.ethPool.Put(ethLayer)
+	}()
+
+	dstIP := addr.IP
+
+	var ipLayer gopacket.SerializableLayer
+	if dstIP.To4() != nil {
+		ip := h.buildIPv4Header(dstIP, h.ipProtocol)
+		defer h.ipv4Pool.Put(ip)
+		ipLayer = ip
+		ethLayer.DstMAC = h.srcIPv4RHWA
+		ethLayer.EthernetType = layers.EthernetTypeIPv4
+	} else {
+		ip := h.buildIPv6Header(dstIP, h.ipProtocol)
+		defer h.ipv6Pool.Put(ip)
+		ipLayer = ip
+		ethLayer.DstMAC = h.srcIPv6RHWA
+		ethLayer.EthernetType = layers.EthernetTypeIPv6
+	}
+
+	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
+	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, gopacket.Payload(payload)); err != nil {
+		return err
+	}
+	return h.handle.WritePacketData(buf.Bytes())
+
+}
+
+func (h *SendHandle) WriteTCP(payload []byte, addr *net.UDPAddr) error {
 	buf := h.bufPool.Get().(gopacket.SerializeBuffer)
 	ethLayer := h.ethPool.Get().(*layers.Ethernet)
 	defer func() {
@@ -192,14 +244,14 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 
 	var ipLayer gopacket.SerializableLayer
 	if dstIP.To4() != nil {
-		ip := h.buildIPv4Header(dstIP)
+		ip := h.buildIPv4Header(dstIP, h.ipProtocol)
 		defer h.ipv4Pool.Put(ip)
 		ipLayer = ip
 		tcpLayer.SetNetworkLayerForChecksum(ip)
 		ethLayer.DstMAC = h.srcIPv4RHWA
 		ethLayer.EthernetType = layers.EthernetTypeIPv4
 	} else {
-		ip := h.buildIPv6Header(dstIP)
+		ip := h.buildIPv6Header(dstIP, h.ipProtocol)
 		defer h.ipv6Pool.Put(ip)
 		ipLayer = ip
 		tcpLayer.SetNetworkLayerForChecksum(ip)

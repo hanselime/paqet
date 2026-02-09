@@ -18,15 +18,18 @@ type Network struct {
 	GUID       string         `yaml:"guid"`
 	IPv4       Addr           `yaml:"ipv4"`
 	IPv6       Addr           `yaml:"ipv6"`
-	PCAP       PCAP           `yaml:"pcap"`
+	IP         IP             `yaml:"ip"`
 	TCP        TCP            `yaml:"tcp"`
+	PCAP       PCAP           `yaml:"pcap"`
 	Interface  *net.Interface `yaml:"-"`
-	Port       int            `yaml:"-"`
+	LPort      int            `yaml:"-"`
+	RPort      int            `yaml:"-"`
 }
 
 func (n *Network) setDefaults(role string) {
 	n.PCAP.setDefaults(role)
 	n.TCP.setDefaults()
+	n.IP.setDefaults()
 }
 
 func (n *Network) validate() []error {
@@ -66,10 +69,10 @@ func (n *Network) validate() []error {
 		}
 	}
 	if n.IPv4.Addr != nil {
-		n.Port = n.IPv4.Addr.Port
+		n.LPort = n.IPv4.Addr.Port
 	}
 	if n.IPv6.Addr != nil {
-		n.Port = n.IPv6.Addr.Port
+		n.LPort = n.IPv6.Addr.Port
 	}
 
 	errors = append(errors, n.PCAP.validate()...)
