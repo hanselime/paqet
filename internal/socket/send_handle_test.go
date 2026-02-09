@@ -146,3 +146,35 @@ func TestQueueDepth(t *testing.T) {
 		t.Errorf("Expected queue depth 3, got %d", depth)
 	}
 }
+
+// TestSetClientTCPFWithNilAddr tests that setClientTCPF handles nil address gracefully
+func TestSetClientTCPFWithNilAddr(t *testing.T) {
+	cfg := &conf.Network{
+		TCP: conf.TCP{
+			LF: []conf.TCPF{{PSH: true, ACK: true}},
+		},
+	}
+
+	sh := &SendHandle{
+		cfg:  cfg,
+		tcpF: TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
+	}
+
+	// Test with nil address (should not panic)
+	tcpFlags := []conf.TCPF{{PSH: true, ACK: true}}
+	sh.setClientTCPF(nil, tcpFlags)
+
+	// Verify that no entry was added to the map
+	if len(sh.tcpF.clientTCPF) != 0 {
+		t.Errorf("Expected clientTCPF map to be empty, got %d entries", len(sh.tcpF.clientTCPF))
+	}
+
+	// Test with valid address
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8080}
+	sh.setClientTCPF(addr, tcpFlags)
+
+	// Verify that the entry was added
+	if len(sh.tcpF.clientTCPF) != 1 {
+		t.Errorf("Expected clientTCPF map to have 1 entry, got %d", len(sh.tcpF.clientTCPF))
+	}
+}
