@@ -2,7 +2,6 @@ package quic
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net"
 	"paqet/internal/conf"

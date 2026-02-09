@@ -11,12 +11,12 @@ import (
 
 // Conn wraps a QUIC connection to implement the tnet.Conn interface
 type Conn struct {
-	connection quic.Connection
+	connection *quic.Conn
 	ctx        context.Context
 	cancel     context.CancelFunc
 }
 
-func newConn(qconn quic.Connection) *Conn {
+func newConn(qconn *quic.Conn) *Conn {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Conn{
 		connection: qconn,
