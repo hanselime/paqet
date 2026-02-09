@@ -10,7 +10,7 @@ import (
 
 // Strm wraps a QUIC stream to implement the tnet.Strm interface
 type Strm struct {
-	stream quic.Stream
+	stream *quic.Stream
 }
 
 func (s *Strm) Read(p []byte) (n int, err error) {
@@ -65,4 +65,9 @@ func (s *Strm) WriteTo(w io.Writer) (n int64, err error) {
 // ReadFrom implements io.ReaderFrom for efficient copying
 func (s *Strm) ReadFrom(r io.Reader) (n int64, err error) {
 	return io.Copy(s.stream, r)
+}
+
+// SID returns the stream ID to implement the tnet.Strm interface
+func (s *Strm) SID() int {
+	return int(s.stream.StreamID())
 }

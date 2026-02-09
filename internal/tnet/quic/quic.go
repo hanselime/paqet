@@ -1,7 +1,6 @@
 package quic
 
 import (
-	"context"
 	"paqet/internal/conf"
 	"time"
 
