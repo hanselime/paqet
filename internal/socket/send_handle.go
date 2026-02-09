@@ -349,6 +349,10 @@ func (h *SendHandle) getClientTCPF(dstIP net.IP, dstPort uint16) conf.TCPF {
 }
 
 func (h *SendHandle) setClientTCPF(addr net.Addr, f []conf.TCPF) {
+	// QUIC streams return nil for RemoteAddr(), so we skip setting client-specific TCPF
+	if addr == nil {
+		return
+	}
 	a := *addr.(*net.UDPAddr)
 	h.tcpF.mu.Lock()
 	h.tcpF.clientTCPF[hash.IPAddr(a.IP, uint16(a.Port))] = &iterator.Iterator[conf.TCPF]{Items: f}
