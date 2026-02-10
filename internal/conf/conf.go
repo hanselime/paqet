@@ -14,6 +14,7 @@ type Conf struct {
 	Role      string    `yaml:"role"`
 	Log       Log       `yaml:"log"`
 	Listen    Server    `yaml:"listen"`
+	Outbound  Outbound  `yaml:"outbound"`
 	SOCKS5    []SOCKS5  `yaml:"socks5"`
 	Forward   []Forward `yaml:"forward"`
 	Network   Network   `yaml:"network"`
@@ -49,6 +50,7 @@ func LoadFromFile(path string) (*Conf, error) {
 func (c *Conf) setDefaults() {
 	c.Log.setDefaults()
 	c.Listen.setDefaults()
+	c.Outbound.setDefaults()
 	for i := range c.SOCKS5 {
 		c.SOCKS5[i].setDefaults()
 	}
@@ -85,6 +87,9 @@ func (c *Conf) validate() error {
 	allErrors = append(allErrors, c.Transport.validate()...)
 	if c.Role == "server" {
 		allErrors = append(allErrors, c.Listen.validate()...)
+		for _, err := range c.Outbound.validate() {
+			allErrors = append(allErrors, err)
+		}
 	} else {
 		allErrors = append(allErrors, c.Server.validate()...)
 		if c.Server.Addr.IP.To4() != nil && c.Network.IPv4.Addr == nil {

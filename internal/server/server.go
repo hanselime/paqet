@@ -16,16 +16,27 @@ import (
 )
 
 type Server struct {
-	cfg   *conf.Conf
-	pConn *socket.PacketConn
-	wg    sync.WaitGroup
+	cfg    *conf.Conf
+	dialer Dialer
+	pConn  *socket.PacketConn
+	wg     sync.WaitGroup
 }
 
 func New(cfg *conf.Conf) (*Server, error) {
-	s := &Server{
-		cfg: cfg,
+	var dialer Dialer
+	if cfg.Outbound.Type == "socks5" {
+		d, err := newSOCKS5Dialer(cfg.Outbound.Addr, cfg.Outbound.Username, cfg.Outbound.Password)
+		if err != nil {
+			return nil, fmt.Errorf("outbound socks5: %w", err)
+		}
+		dialer = d
+	} else {
+		dialer = newDirectDialer()
 	}
-
+	s := &Server{
+		cfg:    cfg,
+		dialer: dialer,
+	}
 	return s, nil
 }
 

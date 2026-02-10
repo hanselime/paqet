@@ -122,6 +122,13 @@ log:
 listen:
   addr: ":9999" # CHANGE ME: Server listen port (must match network.ipv4.addr port), WARNING: Do not use standard ports (80, 443, etc.) as iptables rules can affect outgoing server connections.
 
+# Outbound configuration (optional)
+# outbound:
+#   type: "direct"                           # or "socks5" to route TCP/UDP via proxy
+#   addr: "proxy.example.com:1080"           # required when type is socks5
+#   username: ""                             # optional
+#   password: ""                             # optional
+
 # Network interface settings
 network:
   interface: "eth0" # CHANGE ME: Network interface (eth0, ens3, en0, etc.)
