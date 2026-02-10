@@ -31,6 +31,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+      
+      - name: Mark repo as safe
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Get tag or commit
         id: ref_id
@@ -42,9 +45,6 @@ jobs:
             REF_ID=$(git rev-parse --short HEAD)
           fi
           echo "ref=$REF_ID" >> $GITHUB_OUTPUT
-
-      - name: Mark repo as safe
-        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
         
       - name: Build static OpenWrt binary
         run: |
@@ -104,12 +104,16 @@ jobs:
       - name: Install build deps
         run: |
           apk add --no-cache \
+            git \
             build-base \
             libpcap-dev \
             musl-dev
 
       - name: Checkout code
         uses: actions/checkout@v5
+        
+      - name: Mark repo as safe
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Get tag or commit
         id: ref_id
