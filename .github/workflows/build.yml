@@ -42,7 +42,15 @@ jobs:
                   elif [ "${{ matrix.goarch }}" = "mips64" ]; then
                     dpkg --add-architecture mips64
                     apt-get update
-                    apt-get install -y --no-install-recommends gcc-mips64-linux-gnuabi64 libc6-dev-mips64-cross libpcap-dev
+                    apt-get install -y --no-install-recommends gcc-mips64-linux-gnuabi64 libc6-dev-mips64-cross wget
+                    # Build libpcap for MIPS64
+                    wget https://www.tcpdump.org/release/libpcap-1.10.4.tar.gz
+                    tar -xzf libpcap-1.10.4.tar.gz
+                    cd libpcap-1.10.4
+                    ./configure --host=mips64-linux-gnuabi64 --prefix=/usr/local/mips64 --disable-shared
+                    make
+                    make install
+                    cd ..
                   else
                     apt-get install -y --no-install-recommends build-essential libpcap-dev
                   fi
@@ -77,7 +85,7 @@ jobs:
                   export GIT_TAG=$(git describe --tags --exact-match 2>/dev/null || echo "unknown")
                   export BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
 
-                  # Set the C compiler for cross-compilation
+                  # Set the C compiler and paths for cross-compilation
                   if [ "$GOARCH" = "arm64" ]; then
                     export CC=aarch64-linux-gnu-gcc
                   elif [ "$GOARCH" = "arm" ]; then
@@ -86,6 +94,9 @@ jobs:
                   elif [ "$GOARCH" = "mips64" ]; then
                     export CC=mips64-linux-gnuabi64-gcc
                     export GOMIPS=softfloat
+                    export CGO_CFLAGS="-I/usr/local/mips64/include"
+                    export CGO_LDFLAGS="-L/usr/local/mips64/lib"
+                    export PKG_CONFIG_PATH="/usr/local/mips64/lib/pkgconfig:$PKG_CONFIG_PATH"
                   fi
 
                   go build -v -a -trimpath \
