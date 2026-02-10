@@ -42,7 +42,7 @@ jobs:
                   elif [ "${{ matrix.goarch }}" = "mips64" ]; then
                     dpkg --add-architecture mips64
                     apt-get update
-                    apt-get install -y --no-install-recommends gcc-mips64-linux-gnuabi64 libc6-dev-mips64-cross libpcap-dev:mips64
+                    apt-get install -y --no-install-recommends gcc-mips64-linux-gnuabi64 libc6-dev-mips64-cross libpcap-dev
                   else
                     apt-get install -y --no-install-recommends build-essential libpcap-dev
                   fi
