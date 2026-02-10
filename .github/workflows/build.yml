@@ -42,7 +42,7 @@ jobs:
                   elif [ "${{ matrix.goarch }}" = "mips64" ]; then
                     dpkg --add-architecture mips64
                     apt-get update
-                    apt-get install -y --no-install-recommends gcc-mips64-linux-gnuabi64 libc6-dev-mips64-cross wget flex
+                    apt-get install -y --no-install-recommends gcc-mips64-linux-gnuabi64 libc6-dev-mips64-cross wget flex bison
                     # Build libpcap for MIPS64
                     wget https://www.tcpdump.org/release/libpcap-1.10.4.tar.gz
                     tar -xzf libpcap-1.10.4.tar.gz
