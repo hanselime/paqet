@@ -29,10 +29,10 @@ func (c *Client) Start(ctx context.Context) error {
 	for i := range c.cfg.Transport.Conn {
 		tc, err := newTimedConn(ctx, c.cfg)
 		if err != nil {
-			flog.Errorf("failed to establish connection %d: %v", i+1, err)
+			flog.Errorf("failed to create connection %d: %v", i+1, err)
 			return err
 		}
-		flog.Debugf("client connection %d established successfully", i+1)
+		flog.Debugf("client connection %d created successfully", i+1)
 		c.iter.Items = append(c.iter.Items, tc)
 	}
 	go c.ticker(ctx)

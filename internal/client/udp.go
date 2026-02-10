@@ -41,7 +41,7 @@ func (c *Client) UDP(lAddr, tAddr string) (tnet.Strm, bool, uint64, error) {
 	c.udpPool.strms[key] = strm
 	c.udpPool.mu.Unlock()
 
-	flog.Debugf("established UDP stream %d for %s -> %s", strm.SID(), lAddr, tAddr)
+	flog.Debugf("UDP stream %d created for %s -> %s", strm.SID(), lAddr, tAddr)
 	return strm, true, key, nil
 }
 

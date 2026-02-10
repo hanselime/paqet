@@ -18,7 +18,9 @@ func (c *Client) newConn() (tnet.Conn, error) {
 		if tc.conn != nil {
 			tc.conn.Close()
 		}
-		tc.conn = tc.waitConn()
+		if c, err := tc.createConn(); err == nil {
+			tc.conn = c
+		}
 		tc.expire = time.Now().Add(time.Duration(autoExpire) * time.Second)
 	}
 	return tc.conn, nil
