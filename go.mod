@@ -9,7 +9,7 @@ require (
 	github.com/txthinking/socks5 v0.0.0-20251011041537-5c31f201a10e
 	github.com/xtaci/kcp-go/v5 v5.6.64
 	github.com/xtaci/smux v1.5.53
-	golang.org/x/crypto v0.47.0
+	golang.org/x/crypto v0.48.0
 )
 
 require (
@@ -22,6 +22,6 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/txthinking/runnergroup v0.0.0-20250224021307-5864ffeb65ae // indirect
 	golang.org/x/net v0.49.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
 )
