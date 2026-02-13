@@ -33,24 +33,19 @@ network:
     addr: "[2001:db8::1]:0"                 # CHANGE ME: Local IPv6 address and port (optional)
     router_mac: "aa:bb:cc:dd:ee:ff"         # CHANGE ME: Gateway/router MAC address for IPv6
   
-  # ===== NEW: Port Pool Configuration =====
-  # Distributes connections across multiple source ports
-  # This mimics normal client behavior and reduces firewall tracking load
+  # Port Pool Configuration
   port_pool:
     enabled: true        # Enable port pooling
     start_port: 50000    # Starting port of the pool
     end_port: 51000      # Ending port (creates 1000-port pool)
   
-  # ===== NEW: TCP State Tracking =====
-  # Maintains proper TCP sequence numbers per connection
-  # Dramatically reduces router/firewall connection table churn
+  # TCP State Tracking
   tcp_state:
     enabled: true                  # Enable stateful TCP tracking
     connection_timeout: 5m         # Close connections after 5 minutes idle
     cleanup_interval: 60s          # Cleanup stale connections every 60s
   
-  # ===== NEW: Rate Limiting =====
-  # Prevents overwhelming datacenter network infrastructure
+  # Rate Limiting
   rate_limit:
     enabled: true                  # Enable rate limiting
     packets_per_second: 2000       # Maximum packets per second

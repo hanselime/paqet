@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # paqet Network Impact Diagnostic Tool
-# Validates that firewall-friendly improvements are working
 
 set -e
 
@@ -19,13 +18,11 @@ echo "Port: $PORT"
 echo "Duration: ${DURATION}s"
 echo ""
 
-# Check if running as root
 if [ "$EUID" -ne 0 ]; then
     echo -e "${COLOR_RED}ERROR: This script must be run as root${COLOR_RESET}"
     exit 1
 fi
 
-# Check dependencies
 echo -e "${COLOR_BLUE}[1/6] Checking dependencies...${COLOR_RESET}"
 for cmd in conntrack iptables ss netstat; do
     if ! command -v $cmd &> /dev/null; then
@@ -36,7 +33,6 @@ for cmd in conntrack iptables ss netstat; do
 done
 echo ""
 
-# Baseline measurements
 echo -e "${COLOR_BLUE}[2/6] Taking baseline measurements...${COLOR_RESET}"
 
 if command -v conntrack &> /dev/null; then
@@ -53,7 +49,6 @@ BASELINE_IPTABLES_DROPS=$(iptables -L -v -n -x 2>/dev/null | grep -i drop | head
 echo "  IPTables drops: $BASELINE_IPTABLES_DROPS"
 echo ""
 
-# Monitor for duration
 echo -e "${COLOR_BLUE}[3/6] Monitoring for ${DURATION} seconds...${COLOR_RESET}"
 echo "  (Start paqet now if not already running)"
 echo ""
@@ -61,14 +56,12 @@ echo ""
 TEMP_FILE="/tmp/paqet_diag_$$.txt"
 rm -f "$TEMP_FILE"
 
-# Sample connection table size every second
 for i in $(seq 1 $DURATION); do
     if command -v conntrack &> /dev/null; then
         COUNT=$(conntrack -L 2>/dev/null | grep -c "dport=$PORT" || echo "0")
         echo "$i $COUNT" >> "$TEMP_FILE"
     fi
     
-    # Progress indicator
     if [ $((i % 10)) -eq 0 ]; then
         echo -e "  ${COLOR_YELLOW}Progress: $i/${DURATION}s${COLOR_RESET}"
     fi
@@ -78,7 +71,6 @@ done
 
 echo ""
 
-# Analyze results
 echo -e "${COLOR_BLUE}[4/6] Analyzing connection patterns...${COLOR_RESET}"
 
 if [ -f "$TEMP_FILE" ]; then
@@ -88,7 +80,6 @@ if [ -f "$TEMP_FILE" ]; then
     echo "  Max concurrent connections: $MAX_CONN"
     echo "  Average connections: $AVG_CONN"
     
-    # Evaluate health
     if [ "$MAX_CONN" -lt 100 ]; then
         echo -e "  ${COLOR_GREEN}✓ EXCELLENT: Low connection count (< 100)${COLOR_RESET}"
         CONN_SCORE=10
@@ -109,11 +100,9 @@ else
 fi
 echo ""
 
-# Check for port distribution
 echo -e "${COLOR_BLUE}[5/6] Checking port distribution...${COLOR_RESET}"
 
 if command -v ss &> /dev/null; then
-    # Count unique source ports
     UNIQUE_PORTS=$(ss -tn | grep ":$PORT" | awk '{print $4}' | cut -d: -f2 | sort -u | wc -l)
     echo "  Unique source ports in use: $UNIQUE_PORTS"
     
@@ -134,7 +123,6 @@ else
 fi
 echo ""
 
-# Check packet drops
 echo -e "${COLOR_BLUE}[6/6] Checking packet drops...${COLOR_RESET}"
 
 CURRENT_DROPS=$(iptables -L -v -n -x 2>/dev/null | grep -i drop | head -1 | awk '{print $1}' || echo "0")
@@ -155,7 +143,6 @@ else
 fi
 echo ""
 
-# Generate report
 echo -e "${COLOR_BLUE}=== DIAGNOSTIC REPORT ===${COLOR_RESET}"
 echo ""
 
@@ -188,7 +175,6 @@ else
 fi
 echo ""
 
-# Recommendations
 echo -e "${COLOR_BLUE}=== RECOMMENDATIONS ===${COLOR_RESET}"
 echo ""
 
@@ -227,7 +213,6 @@ echo "  - NETWORK_ISSUES_AND_SOLUTIONS.md"
 echo "  - MIGRATION_GUIDE.md"
 echo ""
 
-# Cleanup
 rm -f "$TEMP_FILE"
 
 exit 0
