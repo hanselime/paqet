@@ -151,8 +151,14 @@ jobs:
                     export GOMIPS64=hardfloat
                   fi
 
+                  if [ "$GOARCH" = "mips" ] || [ "$GOARCH" = "mipsle" ] || [ "$GOARCH" = "mips64" ] || [ "$GOARCH" = "mips64le" ]; then
+                    GCFLAGS=""
+                  else
+                    GCFLAGS="all=-l=4"
+                  fi
+
                   go build -v -a -trimpath \
-                    -gcflags "all=-l=4" \
+                    -gcflags "${GCFLAGS}" \
                     -ldflags "-s -w -buildid= -linkmode external -extldflags '-static' \
                     -X 'paqet/cmd/version.Version=${VERSION}' \
                     -X 'paqet/cmd/version.GitCommit=${GIT_COMMIT}' \
