@@ -1,7 +1,9 @@
 package ping
 
 import (
+	"context"
 	"log"
+
 	"paqet/internal/conf"
 	"paqet/internal/socket"
 
@@ -33,18 +35,20 @@ func sendPacket() {
 	}
 
 	if cfg.Role != "client" {
-		log.Fatalf("Ping command requires client configuration")
+		log.Fatalf("ping command requires client configuration")
 	}
-	sendHandle, err := socket.NewSendHandle(&cfg.Network)
+
+	netCfg := cfg.Network
+	packetConn, err := socket.New(context.TODO(), &netCfg)
 	if err != nil {
 		log.Fatalf("Failed to create raw socket: %v", err)
 	}
-	defer sendHandle.Close()
+	defer packetConn.Close()
 
 	log.Printf("Sending packet from IPv4:%s IPv6:%s to %s via %s...", cfg.Network.IPv4.Addr, cfg.Network.IPv6.Addr, cfg.Server.Addr.String(), cfg.Network.Interface.Name)
 	log.Printf("Payload: \"%s\" (%d bytes)", payload, len(payload))
 
-	if err := sendHandle.Write([]byte(payload), cfg.Server.Addr); err != nil {
+	if _, err := packetConn.WriteTo([]byte(payload), cfg.Server.Addr); err != nil {
 		log.Fatalf("Failed to send packet: %v", err)
 	}
 	log.Printf("Packet sent successfully!")
