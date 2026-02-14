@@ -146,6 +146,7 @@ jobs:
                   
                   if [ "$GOARCH" = "mips" ] || [ "$GOARCH" = "mipsle" ]; then
                     export GOMIPS=softfloat
+                    export CGO_LDFLAGS="${CGO_LDFLAGS} -msoft-float"
                   fi
                   if [ "$GOARCH" = "mips64" ] || [ "$GOARCH" = "mips64le" ]; then
                     export GOMIPS64=hardfloat
