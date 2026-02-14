@@ -35,6 +35,15 @@ func aplConf(conn *kcp.UDPSession, cfg *conf.KCP) {
 	conn.SetWriteDelay(wDelay)
 	conn.SetACKNoDelay(ackNoDelay)
 	conn.SetDSCP(46)
+	// go func() {
+	// 	ticker := time.NewTicker(5 * time.Second)
+	// 	defer ticker.Stop()
+	// 	for range ticker.C {
+	// 		snmp := kcp.DefaultSnmp.Copy()
+	// 		fmt.Printf("[KCP Stats] InPkts=%d OutPkts=%d InSegs=%d OutSegs=%d RetransSegs=%d\n",
+	// 			snmp.InPkts, snmp.OutPkts, snmp.InSegs, snmp.OutSegs, snmp.RetransSegs)
+	// 	}
+	// }()
 }
 
 func smuxConf(cfg *conf.KCP) *smux.Config {

@@ -24,8 +24,8 @@ type PacketConn struct {
 
 // &OpError{Op: "listen", Net: network, Source: nil, Addr: nil, Err: err}
 func New(ctx context.Context, cfg *conf.Network) (*PacketConn, error) {
-	if cfg.Port == 0 {
-		cfg.Port = 32768 + rand.Intn(32768)
+	if cfg.LPort == 0 {
+		cfg.LPort = 32768 + rand.Intn(32768)
 	}
 
 	sendHandle, err := NewSendHandle(cfg)
