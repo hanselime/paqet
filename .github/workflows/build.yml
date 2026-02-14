@@ -144,12 +144,8 @@ jobs:
                     export GOARM=7
                   fi
                   
-                  EXTLDFLAGS="-static"
                   if [ "$GOARCH" = "mips" ] || [ "$GOARCH" = "mipsle" ]; then
-                    export GOMIPS=softfloat
-                    export CGO_CFLAGS="${CGO_CFLAGS} -msoft-float"
-                    export CGO_LDFLAGS="${CGO_LDFLAGS} -msoft-float"
-                    EXTLDFLAGS="-static -msoft-float"
+                    export GOMIPS=hardfloat
                   fi
                   if [ "$GOARCH" = "mips64" ] || [ "$GOARCH" = "mips64le" ]; then
                     export GOMIPS64=hardfloat
@@ -163,7 +159,7 @@ jobs:
 
                   go build -v -a -trimpath \
                     -gcflags "${GCFLAGS}" \
-                    -ldflags "-s -w -buildid= -linkmode external -extldflags '${EXTLDFLAGS}' \
+                    -ldflags "-s -w -buildid= -linkmode external -extldflags '-static' \
                     -X 'paqet/cmd/version.Version=${VERSION}' \
                     -X 'paqet/cmd/version.GitCommit=${GIT_COMMIT}' \
                     -X 'paqet/cmd/version.GitTag=${GIT_TAG}' \
