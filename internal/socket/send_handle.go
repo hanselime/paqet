@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -35,6 +36,12 @@ type SendHandle struct {
 	time        uint32
 	tsCounter   uint32
 	tcpF        TCPF
+	
+
+	seqTracker  *SeqTracker
+	portPool    *PortPool
+	rateLimiter *RateLimiter
+
 	ethPool     sync.Pool
 	ipv4Pool    sync.Pool
 	ipv6Pool    sync.Pool
@@ -48,7 +55,6 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}
 
-	// SetDirection is not fully supported on Windows Npcap, so skip it
 	if runtime.GOOS != "windows" {
 		if err := handle.SetDirection(pcap.DirectionOut); err != nil {
 			return nil, fmt.Errorf("failed to set pcap direction out: %v", err)
@@ -76,6 +82,16 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		ackOptions: ackOptions,
 		tcpF:       TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
 		time:       uint32(time.Now().UnixNano() / int64(time.Millisecond)),
+		
+
+		seqTracker: NewSeqTracker(cfg.TCPState.CleanupInterval, cfg.TCPState.ConnectionTimeout),
+		rateLimiter: NewRateLimiter(RateLimiterConfig{
+			Enabled:          cfg.RateLimit.Enabled,
+			PacketsPerSecond: cfg.RateLimit.PacketsPerSecond,
+			Burst:            cfg.RateLimit.Burst,
+			Adaptive:         cfg.RateLimit.Adaptive,
+		}),
+		
 		ethPool: sync.Pool{
 			New: func() any {
 				return &layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr}
@@ -110,6 +126,18 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		sh.srcIPv6 = cfg.IPv6.Addr.IP
 		sh.srcIPv6RHWA = cfg.IPv6.Router
 	}
+	
+
+	var errPool error
+	sh.portPool, errPool = NewPortPool(PortPoolConfig{
+		Enabled:   cfg.PortPool.Enabled,
+		StartPort: cfg.PortPool.StartPort,
+		EndPort:   cfg.PortPool.EndPort,
+	})
+	if errPool != nil {
+		return nil, fmt.Errorf("failed to create port pool: %w", errPool)
+	}
+	
 	return sh, nil
 }
 
@@ -141,13 +169,46 @@ func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
 	return ip
 }
 
-func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
+func (h *SendHandle) buildTCPHeader(dstIP net.IP, dstPort uint16, f conf.TCPF, payloadLen int) *layers.TCP {
 	tcp := h.tcpPool.Get().(*layers.TCP)
+	
+
+	srcPort := h.srcPort
+	if h.portPool != nil {
+		allocated := h.portPool.AllocatePort(dstIP, dstPort)
+		if allocated != 0 {
+			srcPort = allocated
+		}
+	}
+	
+
+	var seq, ack uint32
+	useTracker := h.seqTracker != nil && (h.seqTracker.cleanupInterval > 0 || h.seqTracker.maxIdleTime > 0)
+	
+	if useTracker {
+		seq, ack = h.seqTracker.GetSeqAck(dstIP, dstPort, payloadLen)
+	} else {
+
+		counter := atomic.AddUint32(&h.tsCounter, 1)
+		if f.SYN {
+			seq = 1 + (counter & 0x7)
+			ack = 0
+			if f.ACK {
+				ack = seq + 1
+			}
+		} else {
+			seq = h.time + (counter << 7)
+			ack = seq - (counter & 0x3FF) + 1400
+		}
+	}
+
 	*tcp = layers.TCP{
-		SrcPort: layers.TCPPort(h.srcPort),
+		SrcPort: layers.TCPPort(srcPort),
 		DstPort: layers.TCPPort(dstPort),
+		Seq:     seq,
+		Ack:     ack,
 		FIN:     f.FIN, SYN: f.SYN, RST: f.RST, PSH: f.PSH, ACK: f.ACK, URG: f.URG, ECE: f.ECE, CWR: f.CWR, NS: f.NS,
-		Window: 65535,
+		Window:  65535,
 	}
 
 	counter := atomic.AddUint32(&h.tsCounter, 1)
@@ -156,19 +217,11 @@ func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
 		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[0:4], tsVal)
 		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[4:8], 0)
 		tcp.Options = h.synOptions
-		tcp.Seq = 1 + (counter & 0x7)
-		tcp.Ack = 0
-		if f.ACK {
-			tcp.Ack = tcp.Seq + 1
-		}
 	} else {
 		tsEcr := tsVal - (counter%200 + 50)
 		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[0:4], tsVal)
 		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[4:8], tsEcr)
 		tcp.Options = h.ackOptions
-		seq := h.time + (counter << 7)
-		tcp.Seq = seq
-		tcp.Ack = seq - (counter & 0x3FF) + 1400
 	}
 
 	return tcp
@@ -186,8 +239,13 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	dstIP := addr.IP
 	dstPort := uint16(addr.Port)
 
+
+	if h.rateLimiter != nil {
+		h.rateLimiter.Wait(context.Background())
+	}
+
 	f := h.getClientTCPF(dstIP, dstPort)
-	tcpLayer := h.buildTCPHeader(dstPort, f)
+	tcpLayer := h.buildTCPHeader(dstIP, dstPort, f, len(payload))
 	defer h.tcpPool.Put(tcpLayer)
 
 	var ipLayer gopacket.SerializableLayer
@@ -233,5 +291,8 @@ func (h *SendHandle) setClientTCPF(addr net.Addr, f []conf.TCPF) {
 func (h *SendHandle) Close() {
 	if h.handle != nil {
 		h.handle.Close()
+	}
+	if h.seqTracker != nil {
+		h.seqTracker.Close()
 	}
 }

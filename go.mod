@@ -10,6 +10,7 @@ require (
 	github.com/xtaci/kcp-go/v5 v5.6.64
 	github.com/xtaci/smux v1.5.53
 	golang.org/x/crypto v0.47.0
+	golang.org/x/time v0.14.0
 )
 
 require (
@@ -23,5 +24,4 @@ require (
 	github.com/txthinking/runnergroup v0.0.0-20250224021307-5864ffeb65ae // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/time v0.14.0 // indirect
 )

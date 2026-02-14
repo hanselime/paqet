@@ -26,6 +26,29 @@ network:
   ipv6:
     addr: "[::1]:9999"                       # CHANGE ME: Server IPv6 and port (or remove if not using IPv6)
     router_mac: "aa:bb:cc:dd:ee:ff"          # CHANGE ME: Gateway/router MAC address
+  
+  # Port Pool Configuration
+  # For server: typically disabled (server uses fixed listen port)
+  # Enable only if server needs to initiate outbound connections
+  port_pool:
+    enabled: false
+  
+  # TCP State Tracking
+  # CRITICAL for servers: Maintains valid TCP state per client
+  # Most important setting for reducing datacenter network load
+  tcp_state:
+    enabled: true                  # STRONGLY RECOMMENDED: Enable stateful tracking
+    connection_timeout: 10m        # Longer timeout for server (10 minutes)
+    cleanup_interval: 120s         # Cleanup every 2 minutes
+  
+  # Rate Limiting
+  # Prevents overwhelming datacenter routers with response packets
+  # Especially important for high-traffic servers
+  rate_limit:
+    enabled: true                  # Enable rate limiting
+    packets_per_second: 5000       # Higher limit for server (adjust based on capacity)
+    burst: 500                     # Allow larger bursts on server
+    adaptive: true                 # Back off if router is dropping packets
 
   # TCP flags for packet crafting (optional - will use defaults)
   tcp:
