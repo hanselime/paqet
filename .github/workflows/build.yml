@@ -24,6 +24,18 @@ jobs:
                     - goarch: arm
                       filename: arm32
                       container: muslcc/x86_64:arm-linux-musleabihf
+                    - goarch: mips
+                      filename: mips
+                      container: muslcc/x86_64:mips-linux-musl
+                    - goarch: mipsle
+                      filename: mipsle
+                      container: muslcc/x86_64:mipsel-linux-musl
+                    - goarch: mips64
+                      filename: mips64
+                      container: muslcc/x86_64:mips64-linux-musl
+                    - goarch: mips64le
+                      filename: mips64le
+                      container: muslcc/x86_64:mips64el-linux-musl
 
         container:
             image: ${{ matrix.container }}
@@ -72,6 +84,14 @@ jobs:
                     HOST_FLAG="--host=aarch64-linux-musl"
                   elif [ "${{ matrix.goarch }}" = "arm" ]; then
                     HOST_FLAG="--host=arm-linux-musleabihf"
+                  elif [ "${{ matrix.goarch }}" = "mips" ]; then
+                    HOST_FLAG="--host=mips-linux-musl"
+                  elif [ "${{ matrix.goarch }}" = "mipsle" ]; then
+                    HOST_FLAG="--host=mipsel-linux-musl"
+                  elif [ "${{ matrix.goarch }}" = "mips64" ]; then
+                    HOST_FLAG="--host=mips64-linux-musl"
+                  elif [ "${{ matrix.goarch }}" = "mips64le" ]; then
+                    HOST_FLAG="--host=mips64el-linux-musl"
                   fi
                   
                   # Configure and build libpcap
@@ -123,9 +143,22 @@ jobs:
                   if [ "$GOARCH" = "arm" ]; then
                     export GOARM=7
                   fi
+                  
+                  if [ "$GOARCH" = "mips" ] || [ "$GOARCH" = "mipsle" ]; then
+                    export GOMIPS=hardfloat
+                  fi
+                  if [ "$GOARCH" = "mips64" ] || [ "$GOARCH" = "mips64le" ]; then
+                    export GOMIPS64=hardfloat
+                  fi
+
+                  if [ "$GOARCH" = "mips" ] || [ "$GOARCH" = "mipsle" ] || [ "$GOARCH" = "mips64" ] || [ "$GOARCH" = "mips64le" ]; then
+                    GCFLAGS=""
+                  else
+                    GCFLAGS="all=-l=4"
+                  fi
 
                   go build -v -a -trimpath \
-                    -gcflags "all=-l=4" \
+                    -gcflags "${GCFLAGS}" \
                     -ldflags "-s -w -buildid= -linkmode external -extldflags '-static' \
                     -X 'paqet/cmd/version.Version=${VERSION}' \
                     -X 'paqet/cmd/version.GitCommit=${GIT_COMMIT}' \
