@@ -26,13 +26,12 @@ func (h *Handler) TCPHandle(server *socks5.Server, conn *net.TCPConn, r *socks5.
 func (h *Handler) handleTCPConnect(conn *net.TCPConn, r *socks5.Request) error {
 	flog.Infof("SOCKS5 accepted TCP connection %s -> %s", conn.RemoteAddr(), r.Address())
 
-	addr := conn.LocalAddr().(*net.TCPAddr)
-	bufp := rPool.Get().(*[]byte)
-	defer rPool.Put(bufp)
-	buf := *bufp
+	buf := make([]byte, 0, 4+1+255+2) // header + addr + port (max domain length 255)
 	buf = append(buf, socks5.Ver)
 	buf = append(buf, socks5.RepSuccess)
 	buf = append(buf, 0x00)
+
+	addr := conn.LocalAddr().(*net.TCPAddr)
 	if ip4 := addr.IP.To4(); ip4 != nil {
 		buf = append(buf, socks5.ATYPIPv4)
 		buf = append(buf, ip4...)

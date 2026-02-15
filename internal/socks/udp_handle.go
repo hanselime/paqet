@@ -11,9 +11,7 @@ import (
 )
 
 func (h *Handler) UDPHandle(server *socks5.Server, addr *net.UDPAddr, d *socks5.Datagram) error {
-	bufp := buffer.UPool.Get().(*[]byte)
-	defer buffer.UPool.Put(bufp)
-	buf := *bufp
+	buf := make([]byte, buffer.UPool)
 	strm, new, k, err := h.client.UDP(addr.String(), d.Address())
 	if err != nil {
 		flog.Errorf("SOCKS5 failed to establish UDP stream for %s -> %s: %v", addr, d.Address(), err)
@@ -63,12 +61,11 @@ func (h *Handler) UDPHandle(server *socks5.Server, addr *net.UDPAddr, d *socks5.
 func (h *Handler) handleUDPAssociate(conn *net.TCPConn) error {
 	addr := conn.LocalAddr().(*net.TCPAddr)
 
-	bufp := rPool.Get().(*[]byte)
-	defer rPool.Put(bufp)
-	buf := *bufp
+	buf := make([]byte, 0, 4+1+255+2) // header + addr + port (max domain length 255)
 	buf = append(buf, socks5.Ver)
 	buf = append(buf, socks5.RepSuccess)
 	buf = append(buf, 0x00) // reserved
+
 	if ip4 := addr.IP.To4(); ip4 != nil {
 		// IPv4
 		buf = append(buf, socks5.ATYPIPv4)
