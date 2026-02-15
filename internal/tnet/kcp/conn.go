@@ -71,8 +71,33 @@ func (c *Conn) Close() error {
 	return err
 }
 
-func (c *Conn) LocalAddr() net.Addr                { return c.Session.LocalAddr() }
-func (c *Conn) RemoteAddr() net.Addr               { return c.Session.RemoteAddr() }
-func (c *Conn) SetDeadline(t time.Time) error      { return c.Session.SetDeadline(t) }
-func (c *Conn) SetReadDeadline(t time.Time) error  { return c.UDPSession.SetReadDeadline(t) }
-func (c *Conn) SetWriteDeadline(t time.Time) error { return c.UDPSession.SetWriteDeadline(t) }
+func (c *Conn) LocalAddr() net.Addr {
+	if c.Session == nil {
+		return nil
+	}
+	return c.Session.LocalAddr()
+}
+func (c *Conn) RemoteAddr() net.Addr {
+	if c.Session == nil {
+		return nil
+	}
+	return c.Session.RemoteAddr()
+}
+func (c *Conn) SetDeadline(t time.Time) error {
+	if c.Session == nil {
+		return nil
+	}
+	return c.Session.SetDeadline(t)
+}
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	if c.UDPSession == nil {
+		return nil
+	}
+	return c.UDPSession.SetReadDeadline(t)
+}
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	if c.UDPSession == nil {
+		return nil
+	}
+	return c.UDPSession.SetWriteDeadline(t)
+}

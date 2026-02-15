@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"paqet/internal/flog"
 	"paqet/internal/pkg/buffer"
@@ -11,6 +12,10 @@ import (
 )
 
 func (s *Server) handleTCPProtocol(ctx context.Context, strm tnet.Strm, p *protocol.Proto) error {
+	if p.Addr == nil {
+		flog.Errorf("TCP stream %d from %s has nil address", strm.SID(), strm.RemoteAddr())
+		return fmt.Errorf("nil address in TCP protocol message")
+	}
 	flog.Infof("accepted TCP stream %d: %s -> %s", strm.SID(), strm.RemoteAddr(), p.Addr.String())
 	return s.handleTCP(ctx, strm, p.Addr.String())
 }

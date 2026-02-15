@@ -1,6 +1,7 @@
 package client
 
 import (
+	"fmt"
 	"paqet/internal/flog"
 	"paqet/internal/tnet"
 	"time"
@@ -18,9 +19,11 @@ func (c *Client) newConn() (tnet.Conn, error) {
 		if tc.conn != nil {
 			tc.conn.Close()
 		}
-		if c, err := tc.createConn(); err == nil {
-			tc.conn = c
+		newConn, err := tc.createConn()
+		if err != nil {
+			return nil, fmt.Errorf("failed to recreate connection: %w", err)
 		}
+		tc.conn = newConn
 		tc.expire = time.Now().Add(time.Duration(autoExpire) * time.Second)
 	}
 	return tc.conn, nil
@@ -29,13 +32,11 @@ func (c *Client) newConn() (tnet.Conn, error) {
 func (c *Client) newStrm() (tnet.Strm, error) {
 	conn, err := c.newConn()
 	if err != nil {
-		flog.Debugf("session creation failed, retrying")
-		return c.newStrm()
+		return nil, fmt.Errorf("failed to get connection: %w", err)
 	}
 	strm, err := conn.OpenStrm()
 	if err != nil {
-		flog.Debugf("failed to open stream, retrying: %v", err)
-		return c.newStrm()
+		return nil, fmt.Errorf("failed to open stream: %w", err)
 	}
 	return strm, nil
 }
