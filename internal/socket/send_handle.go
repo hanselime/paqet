@@ -30,8 +30,6 @@ type SendHandle struct {
 	srcIPv6     net.IP
 	srcIPv6RHWA net.HardwareAddr
 	srcPort     uint16
-	synOptions  []layers.TCPOption
-	ackOptions  []layers.TCPOption
 	time        uint32
 	tsCounter   uint32
 	tcpF        TCPF
@@ -55,27 +53,11 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		}
 	}
 
-	synOptions := []layers.TCPOption{
-		{OptionType: layers.TCPOptionKindMSS, OptionLength: 4, OptionData: []byte{0x05, 0xb4}},
-		{OptionType: layers.TCPOptionKindSACKPermitted, OptionLength: 2},
-		{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
-		{OptionType: layers.TCPOptionKindNop},
-		{OptionType: layers.TCPOptionKindWindowScale, OptionLength: 3, OptionData: []byte{8}},
-	}
-
-	ackOptions := []layers.TCPOption{
-		{OptionType: layers.TCPOptionKindNop},
-		{OptionType: layers.TCPOptionKindNop},
-		{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
-	}
-
 	sh := &SendHandle{
-		handle:     handle,
-		srcPort:    uint16(cfg.Port),
-		synOptions: synOptions,
-		ackOptions: ackOptions,
-		tcpF:       TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
-		time:       uint32(time.Now().UnixNano() / int64(time.Millisecond)),
+		handle:  handle,
+		srcPort: uint16(cfg.Port),
+		tcpF:    TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
+		time:    uint32(time.Now().UnixNano() / int64(time.Millisecond)),
 		ethPool: sync.Pool{
 			New: func() any {
 				return &layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr}
@@ -153,19 +135,29 @@ func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
 	counter := atomic.AddUint32(&h.tsCounter, 1)
 	tsVal := h.time + (counter >> 3)
 	if f.SYN {
-		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[0:4], tsVal)
-		binary.BigEndian.PutUint32(h.synOptions[2].OptionData[4:8], 0)
-		tcp.Options = h.synOptions
+		tcp.Options = []layers.TCPOption{
+			{OptionType: layers.TCPOptionKindMSS, OptionLength: 4, OptionData: []byte{0x05, 0xb4}},
+			{OptionType: layers.TCPOptionKindSACKPermitted, OptionLength: 2},
+			{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
+			{OptionType: layers.TCPOptionKindNop},
+			{OptionType: layers.TCPOptionKindWindowScale, OptionLength: 3, OptionData: []byte{8}},
+		}
+		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[0:4], tsVal)
+		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[4:8], 0)
 		tcp.Seq = 1 + (counter & 0x7)
 		tcp.Ack = 0
 		if f.ACK {
 			tcp.Ack = tcp.Seq + 1
 		}
 	} else {
+		tcp.Options = []layers.TCPOption{
+			{OptionType: layers.TCPOptionKindNop},
+			{OptionType: layers.TCPOptionKindNop},
+			{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
+		}
 		tsEcr := tsVal - (counter%200 + 50)
-		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[0:4], tsVal)
-		binary.BigEndian.PutUint32(h.ackOptions[2].OptionData[4:8], tsEcr)
-		tcp.Options = h.ackOptions
+		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[0:4], tsVal)
+		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[4:8], tsEcr)
 		seq := h.time + (counter << 7)
 		tcp.Seq = seq
 		tcp.Ack = seq - (counter & 0x3FF) + 1400
