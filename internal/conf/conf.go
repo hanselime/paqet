@@ -85,7 +85,9 @@ func (c *Conf) validate() error {
 	allErrors = append(allErrors, c.Transport.validate()...)
 	if c.Role == "server" {
 		allErrors = append(allErrors, c.Listen.validate()...)
-	} else {
+		c.Network.RPort = 0
+	}
+	if c.Role == "client" {
 		allErrors = append(allErrors, c.Server.validate()...)
 		if c.Server.Addr.IP.To4() != nil && c.Network.IPv4.Addr == nil {
 			allErrors = append(allErrors, fmt.Errorf("server address is IPv4, but the IPv4 interface is not configured"))
@@ -93,9 +95,10 @@ func (c *Conf) validate() error {
 		if c.Server.Addr.IP.To4() == nil && c.Network.IPv6.Addr == nil {
 			allErrors = append(allErrors, fmt.Errorf("server address is IPv6, but the IPv6 interface is not configured"))
 		}
-		if c.Transport.Conn > 1 && c.Network.Port != 0 {
+		if c.Transport.Conn > 1 && c.Network.LPort != 0 {
 			allErrors = append(allErrors, fmt.Errorf("only one connection is allowed when a client port is explicitly set"))
 		}
+		c.Network.RPort = c.Server.Addr.Port
 	}
 	return writeErr(allErrors)
 }
