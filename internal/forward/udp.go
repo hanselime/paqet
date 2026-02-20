@@ -88,10 +88,14 @@ func (f *Forward) handleUDPStrm(ctx context.Context, k uint64, strm tnet.Strm, c
 		}
 		strm.SetDeadline(time.Now().Add(8 * time.Second))
 		n, err := strm.Read(buf)
-		_, err = conn.WriteToUDP(buf[:n], caddr)
 		strm.SetDeadline(time.Time{})
 		if err != nil {
-			flog.Errorf("UDP stream %d failed for %s -> %s: %v", strm.SID(), caddr, f.targetAddr, err)
+			flog.Errorf("UDP stream %d read failed for %s -> %s: %v", strm.SID(), caddr, f.targetAddr, err)
+			return
+		}
+		_, err = conn.WriteToUDP(buf[:n], caddr)
+		if err != nil {
+			flog.Errorf("UDP stream %d write failed for %s -> %s: %v", strm.SID(), caddr, f.targetAddr, err)
 			return
 		}
 	}
