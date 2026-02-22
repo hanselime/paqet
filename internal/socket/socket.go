@@ -7,14 +7,20 @@ import (
 	"net"
 	"os"
 	"paqet/internal/conf"
+	bpfsocket "paqet/internal/ebpf/socket"
 	"sync/atomic"
 	"time"
 )
 
+type RecvHandler interface {
+	Read() ([]byte, net.Addr, error)
+	Close()
+}
+
 type PacketConn struct {
 	cfg           *conf.Network
 	sendHandle    *SendHandle
-	recvHandle    *RecvHandle
+	recvHandle    RecvHandler
 	readDeadline  atomic.Value
 	writeDeadline atomic.Value
 
@@ -24,6 +30,8 @@ type PacketConn struct {
 
 // &OpError{Op: "listen", Net: network, Source: nil, Addr: nil, Err: err}
 func New(ctx context.Context, cfg *conf.Network) (*PacketConn, error) {
+	var recvHandle RecvHandler
+
 	if cfg.Port == 0 {
 		cfg.Port = 32768 + rand.Intn(32768)
 	}
@@ -33,7 +41,11 @@ func New(ctx context.Context, cfg *conf.Network) (*PacketConn, error) {
 		return nil, fmt.Errorf("failed to create send handle on %s: %v", cfg.Interface.Name, err)
 	}
 
-	recvHandle, err := NewRecvHandle(cfg)
+	if cfg.Driver == conf.DriverEBPF {
+		recvHandle, err = bpfsocket.NewRecvHandle(cfg)
+	} else {
+		recvHandle, err = NewRecvHandle(cfg)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create receive handle on %s: %v", cfg.Interface.Name, err)
 	}
