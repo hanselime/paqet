@@ -26,10 +26,10 @@ jobs:
                       container: muslcc/x86_64:arm-linux-musleabihf
                     - goarch: mips
                       filename: mips
-                      container: muslcc/x86_64:mips-linux-musl
+                      container: muslcc/x86_64:mips-linux-muslsf
                     - goarch: mipsle
                       filename: mipsle
-                      container: muslcc/x86_64:mipsel-linux-musl
+                      container: muslcc/x86_64:mipsel-linux-muslsf
                     - goarch: mips64
                       filename: mips64
                       container: muslcc/x86_64:mips64-linux-musl
@@ -85,9 +85,9 @@ jobs:
                   elif [ "${{ matrix.goarch }}" = "arm" ]; then
                     HOST_FLAG="--host=arm-linux-musleabihf"
                   elif [ "${{ matrix.goarch }}" = "mips" ]; then
-                    HOST_FLAG="--host=mips-linux-musl"
+                    HOST_FLAG="--host=mips-linux-muslsf"
                   elif [ "${{ matrix.goarch }}" = "mipsle" ]; then
-                    HOST_FLAG="--host=mipsel-linux-musl"
+                    HOST_FLAG="--host=mipsel-linux-muslsf"
                   elif [ "${{ matrix.goarch }}" = "mips64" ]; then
                     HOST_FLAG="--host=mips64-linux-musl"
                   elif [ "${{ matrix.goarch }}" = "mips64le" ]; then
@@ -145,7 +145,7 @@ jobs:
                   fi
                   
                   if [ "$GOARCH" = "mips" ] || [ "$GOARCH" = "mipsle" ]; then
-                    export GOMIPS=hardfloat
+                    export GOMIPS=softfloat
                   fi
                   if [ "$GOARCH" = "mips64" ] || [ "$GOARCH" = "mips64le" ]; then
                     export GOMIPS64=hardfloat
