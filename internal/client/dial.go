@@ -18,6 +18,7 @@ func (c *Client) newConn() (tnet.Conn, error) {
 		if tc.conn != nil {
 			tc.conn.Close()
 		}
+		c.udpPool.clear()
 		if c, err := tc.createConn(); err == nil {
 			tc.conn = c
 		}

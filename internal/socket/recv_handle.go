@@ -79,15 +79,16 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 }
 
 func (h *RecvHandle) ReadTo(data []byte) (int, net.Addr, error) {
-	payload, addr, err := h.Read()
-	if err != nil {
-		return 0, nil, err
+	for {
+		payload, addr, err := h.Read()
+		if err != nil {
+			return 0, nil, err
+		}
+		if payload != nil {
+			n := copy(data, payload)
+			return n, addr, nil
+		}
 	}
-	if payload == nil {
-		return 0, addr, nil
-	}
-	n := copy(data, payload)
-	return n, addr, nil
 }
 
 func (h *RecvHandle) Close() {

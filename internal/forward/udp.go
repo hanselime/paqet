@@ -93,6 +93,10 @@ func (f *Forward) handleUDPStrm(ctx context.Context, k uint64, strm tnet.Strm, c
 			flog.Errorf("UDP stream %d read failed for %s -> %s: %v", strm.SID(), caddr, f.targetAddr, err)
 			return
 		}
+		if n == 0 {
+			flog.Debugf("UDP stream %d read 0 bytes, terminating forwarder", strm.SID())
+			return
+		}
 		_, err = conn.WriteToUDP(buf[:n], caddr)
 		if err != nil {
 			flog.Errorf("UDP stream %d write failed for %s -> %s: %v", strm.SID(), caddr, f.targetAddr, err)

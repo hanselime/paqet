@@ -24,3 +24,12 @@ func (p *udpPool) delete(key uint64) error {
 
 	return nil
 }
+
+func (p *udpPool) clear() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for key, strm := range p.strms {
+		strm.Close()
+		delete(p.strms, key)
+	}
+}
