@@ -25,16 +25,13 @@
 ### Prerequisites
 
 - `libpcap` development libraries must be installed on both the client and server machines.
-  - **Debian/Ubuntu:** `sudo apt-get install libpcap-dev`
-  - **RHEL/CentOS/Fedora:** `sudo yum install libpcap-devel`
+  - **Linux:** No prerequisites - binaries are statically linked.
   - **macOS:** Comes pre-installed with Xcode Command Line Tools. Install with `xcode-select --install`
   - **Windows:** Install Npcap. Download from [npcap.com](https://npcap.com/).
 
 ### 1. Download a Release
 
-Download the pre-compiled binary for your client and server operating systems from the project's **Releases page**.
-
-You will also need the configuration files from the `example/` directory.
+Download the pre-compiled binary for your client and server operating systems from the [Releases page](https://github.com/hanselime/paqet/releases/latest).
 
 ### 2. Configure the Connection
 

@@ -1,17 +1,20 @@
 package dump
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"net"
 	"os"
 	"os/signal"
-	"paqet/internal/flog"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/gopacket/gopacket"
-	"github.com/gopacket/gopacket/layers"
-	"github.com/gopacket/gopacket/pcap"
+	"paqet/internal/conf"
+	"paqet/internal/socket"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,79 +25,75 @@ var (
 	promisc bool
 )
 
-func init() {
-	Cmd.PersistentFlags().StringVarP(&iface, "interface", "i", "any", "Interface to listen on")
-	Cmd.PersistentFlags().IntVarP(&port, "port", "p", 0, "TCP destination port to filter on")
-	Cmd.PersistentFlags().IntVar(&snaplen, "snaplen", 65536, "Snapshot length for pcap")
-	Cmd.PersistentFlags().BoolVar(&promisc, "promisc", true, "Set promiscuous mode")
+var confPath string
 
-	Cmd.MarkPersistentFlagRequired("port")
+func init() {
+	Cmd.Flags().StringVarP(&confPath, "config", "c", "config.yaml", "Path to the configuration file.")
 }
 
 var Cmd = &cobra.Command{
 	Use:   "dump",
 	Short: "A raw packet dumper that logs TCP payloads for a given port.",
 	Run: func(cmd *cobra.Command, args []string) {
-		flog.Debugf("Starting packet listener on interface '%s' for TCP destination port %d...", iface, port)
-
-		handle, err := pcap.OpenLive(iface, int32(snaplen), promisc, pcap.BlockForever)
+		cfg, err := conf.LoadFromFile(confPath)
 		if err != nil {
-			flog.Fatalf("Error opening pcap handle: %v", err)
-		}
-		filter := fmt.Sprintf("tcp and dst port %d", port)
-		if err := handle.SetBPFFilter(filter); err != nil {
-			flog.Fatalf("Error setting BPF filter '%s': %v", filter, err)
+			log.Fatalf("Failed to load configuration: %v", err)
 		}
 
-		flog.Infof("Listener started. Waiting for packets... (Press Ctrl+C to exit)")
+		if cfg.Role != "server" {
+			log.Fatalf("dump command requires server configuration")
+		}
 
-		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-		packets := packetSource.Packets()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		netCfg := cfg.Network
+		packetConn, err := socket.New(ctx, &netCfg)
+		if err != nil {
+			log.Fatalf("Failed to create raw socket: %v", err)
+		}
+		defer packetConn.Close()
+
+		log.Printf("listening for packets on :%d, (Press Ctrl+C to exit)", cfg.Listen.Addr.Port)
 
 		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
-		for {
-			select {
-			case packet := <-packets:
-				go handlePacket(packet)
-			case <-sigChan:
-				// handle.Close()
-				flog.Infof("Shutdown signal received, exiting.")
-				return
+		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					payload := make([]byte, 65535)
+					packetConn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+					n, srcAddr, err := packetConn.ReadFrom(payload)
+					if err != nil {
+						if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+							continue
+						}
+						log.Printf("Failed to read from socket: %v", err)
+						continue
+					}
+					go handlePacket(srcAddr, cfg.Listen.Addr, payload[:n])
+				}
 			}
-		}
+		}()
+		<-sigChan
+		log.Printf("Shutdown signal received, exiting.")
+		cancel()
 	},
 }
 
-func handlePacket(packet gopacket.Packet) {
-	appLayer := packet.ApplicationLayer()
-
-	var payload []byte
-	if appLayer != nil {
-		payload = appLayer.Payload()
-	}
-
-	var srcAddr, dstAddr string
-	if ipLayer := packet.Layer(layers.LayerTypeIPv4); ipLayer != nil {
-		ip, _ := ipLayer.(*layers.IPv4)
-		srcAddr = ip.SrcIP.String()
-		dstAddr = ip.DstIP.String()
-	}
-	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
-		tcp, _ := tcpLayer.(*layers.TCP)
-		srcAddr = fmt.Sprintf("%s:%s", srcAddr, tcp.SrcPort)
-		dstAddr = fmt.Sprintf("%s:%s", dstAddr, tcp.DstPort)
-	}
-
+func handlePacket(srcAddr, dstAddr net.Addr, payload []byte) {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf(
+	fmt.Fprintf(&sb,
 		"[%s] Packet: %s -> %s | Length: %d bytes\n",
 		time.Now().Format("15:04:05.000"),
 		srcAddr,
 		dstAddr,
 		len(payload),
-	))
-	// sb.WriteString(fmt.Sprintf("Flags: %s\n", ""))
+	)
 	sb.WriteString("--- PAYLOAD (HEX DUMP) ---\n")
 	sb.WriteString(hex.Dump(payload))
 	sb.WriteString("--------------------------")
