@@ -86,6 +86,9 @@ transport:
     # smuxbuf: 4194304       # 4MB SMUX buffer
     # streambuf: 2097152     # 2MB stream buffer
 
+    # smuxkalive: 2       # SMUX keepalive interval (seconds)
+    # smuxktimeout: 8     # SMUX keepalive timeout (seconds)
+
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:
 #   dshard: 10    # Data shards for FEC  
