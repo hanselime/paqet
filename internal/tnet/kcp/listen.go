@@ -49,5 +49,8 @@ func (l *Listener) Close() error {
 }
 
 func (l *Listener) Addr() net.Addr {
+	if l.listener == nil {
+		return nil
+	}
 	return l.listener.Addr()
 }

@@ -33,6 +33,9 @@ func (t *Transport) setDefaults(role string) {
 
 	switch t.Protocol {
 	case "kcp":
+		if t.KCP == nil {
+			t.KCP = &KCP{}
+		}
 		t.KCP.setDefaults(role)
 	}
 }
@@ -46,12 +49,16 @@ func (t *Transport) validate() []error {
 	}
 
 	if t.Conn < 1 || t.Conn > 256 {
-		errors = append(errors, fmt.Errorf("KCP conn must be between 1-256 connections"))
+		errors = append(errors, fmt.Errorf("transport conn must be between 1-256 connections"))
 	}
 
 	switch t.Protocol {
 	case "kcp":
-		errors = append(errors, t.KCP.validate()...)
+		if t.KCP == nil {
+			errors = append(errors, fmt.Errorf("KCP configuration is required when protocol is kcp"))
+		} else {
+			errors = append(errors, t.KCP.validate()...)
+		}
 	}
 
 	return errors
