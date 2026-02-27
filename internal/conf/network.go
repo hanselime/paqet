@@ -6,6 +6,13 @@ import (
 	"runtime"
 )
 
+type Driver string
+
+const (
+	DriverPCAP Driver = "pcap"
+	DriverEBPF Driver = "ebpf"
+)
+
 type Addr struct {
 	Addr_      string           `yaml:"addr"`
 	RouterMac_ string           `yaml:"router_mac"`
@@ -20,11 +27,15 @@ type Network struct {
 	IPv6       Addr           `yaml:"ipv6"`
 	PCAP       PCAP           `yaml:"pcap"`
 	TCP        TCP            `yaml:"tcp"`
+	Driver     Driver         `yaml:"driver"`
 	Interface  *net.Interface `yaml:"-"`
 	Port       int            `yaml:"-"`
 }
 
 func (n *Network) setDefaults(role string) {
+	if n.Driver != DriverEBPF {
+		n.Driver = DriverPCAP
+	}
 	n.PCAP.setDefaults(role)
 	n.TCP.setDefaults()
 }
