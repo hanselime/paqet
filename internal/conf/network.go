@@ -91,7 +91,7 @@ func (n *Addr) validate() []error {
 		errors = append(errors, fmt.Errorf("Router MAC address is required"))
 	}
 
-	hwAddr, err := net.ParseMAC(n.RouterMac_)
+	hwAddr, err := parseMAC(n.RouterMac_)
 	if err != nil {
 		errors = append(errors, fmt.Errorf("invalid Router MAC address '%s': %v", n.RouterMac_, err))
 	}
