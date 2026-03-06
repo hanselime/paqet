@@ -72,7 +72,12 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 		return nil, nil, nil
 	}
 
-	return appLayer.Payload(), addr, nil
+	payload, err := decodeFrame(appLayer.Payload())
+	if err != nil {
+		return nil, nil, nil
+	}
+
+	return payload, addr, nil
 }
 
 func (h *RecvHandle) Close() {
