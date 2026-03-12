@@ -8,7 +8,7 @@ type Iterator[T any] struct {
 }
 
 func (it *Iterator[T]) Next() T {
-	i := it.index.Add(1)
+	i := it.index.Add(1) - 1
 	n := uint64(len(it.Items))
 	if n&(n-1) == 0 {
 		return it.Items[i&(n-1)]
