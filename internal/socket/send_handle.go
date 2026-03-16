@@ -200,7 +200,8 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	}
 
 	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
-	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, tcpLayer, gopacket.Payload(payload)); err != nil {
+	framedPayload := encodeFrame(payload)
+	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, tcpLayer, gopacket.Payload(framedPayload)); err != nil {
 		return err
 	}
 	return h.handle.WritePacketData(buf.Bytes())
