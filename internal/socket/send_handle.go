@@ -222,6 +222,16 @@ func (h *SendHandle) setClientTCPF(addr net.Addr, f []conf.TCPF) {
 	h.tcpF.mu.Unlock()
 }
 
+func (h *SendHandle) deleteClientTCPF(addr net.Addr) {
+	a, ok := addr.(*net.UDPAddr)
+	if !ok {
+		return
+	}
+	h.tcpF.mu.Lock()
+	delete(h.tcpF.clientTCPF, hash.IPAddr(a.IP, uint16(a.Port)))
+	h.tcpF.mu.Unlock()
+}
+
 func (h *SendHandle) Close() {
 	if h.handle != nil {
 		h.handle.Close()
