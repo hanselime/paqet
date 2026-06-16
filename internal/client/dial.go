@@ -11,7 +11,6 @@ func (c *Client) newConn() (tnet.Conn, error) {
 	defer c.mu.Unlock()
 	autoExpire := 300
 	tc := c.iter.Next()
-	go tc.sendTCPF(tc.conn)
 	err := tc.conn.Ping(false)
 	if err != nil {
 		flog.Infof("connection lost, retrying....")
