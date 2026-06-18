@@ -82,6 +82,9 @@ func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
 
 		s.wg.Go(func() {
 			defer conn.Close()
+			// Drop the per-client TCPF entry when the session ends; otherwise
+			// every reconnect (new source port) leaks a map entry forever.
+			defer s.pConn.DeleteClientTCPF(conn.RemoteAddr())
 			s.handleConn(ctx, conn)
 		})
 	}

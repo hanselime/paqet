@@ -2,6 +2,7 @@ package socket
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -9,6 +10,8 @@ import (
 	"paqet/internal/conf"
 	"sync/atomic"
 	"time"
+
+	"github.com/gopacket/gopacket/pcap"
 )
 
 type PacketConn struct {
@@ -59,21 +62,26 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 		deadline = timer.C
 	}
 
-	select {
-	case <-c.ctx.Done():
-		return 0, nil, c.ctx.Err()
-	case <-deadline:
-		return 0, nil, os.ErrDeadlineExceeded
-	default:
-	}
+	for {
+		select {
+		case <-c.ctx.Done():
+			return 0, nil, c.ctx.Err()
+		case <-deadline:
+			return 0, nil, os.ErrDeadlineExceeded
+		default:
+		}
 
-	payload, addr, err := c.recvHandle.Read()
-	if err != nil {
-		return 0, nil, err
+		payload, paddr, perr := c.recvHandle.Read()
+		if perr != nil {
+			// Idle poll timeout on the non-blocking handle: not a real error,
+			// loop back to re-check ctx/deadline so the read stays cancelable.
+			if errors.Is(perr, pcap.NextErrorTimeoutExpired) {
+				continue
+			}
+			return 0, nil, perr
+		}
+		return copy(data, payload), paddr, nil
 	}
-	n = copy(data, payload)
-
-	return n, addr, nil
 }
 
 func (c *PacketConn) WriteTo(data []byte, addr net.Addr) (n int, err error) {
@@ -150,4 +158,8 @@ func (c *PacketConn) SetDSCP(dscp int) error {
 
 func (c *PacketConn) SetClientTCPF(addr net.Addr, f []conf.TCPF) {
 	c.sendHandle.setClientTCPF(addr, f)
+}
+
+func (c *PacketConn) DeleteClientTCPF(addr net.Addr) {
+	c.sendHandle.deleteClientTCPF(addr)
 }

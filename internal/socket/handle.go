@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"paqet/internal/conf"
 	"runtime"
+	"time"
 
 	"github.com/gopacket/gopacket/pcap"
 )
+
+// readTimeout keeps the pcap handle in non-blocking mode. A positive timeout
+// makes gopacket's Activate() call setNonBlocking(), so pcap_next_ex polls
+// instead of parking in the kernel forever. That lets Handle.Close() interrupt
+// an idle read loop (via its stop flag); with pcap.BlockForever a read on a
+// now-silent source (e.g. after a reconnect) never returns, so Close() hangs
+// and the capture buffer plus read-loop goroutine leak on every reconnect.
+const readTimeout = 100 * time.Millisecond
 
 func newHandle(cfg *conf.Network) (*pcap.Handle, error) {
 	// On Windows, use the GUID field to construct the NPF device name
@@ -32,7 +41,7 @@ func newHandle(cfg *conf.Network) (*pcap.Handle, error) {
 	if err = inactive.SetPromisc(true); err != nil {
 		return nil, fmt.Errorf("failed to enable promiscuous mode: %v", err)
 	}
-	if err = inactive.SetTimeout(pcap.BlockForever); err != nil {
+	if err = inactive.SetTimeout(readTimeout); err != nil {
 		return nil, fmt.Errorf("failed to set pcap timeout: %v", err)
 	}
 	if err = inactive.SetImmediateMode(true); err != nil {
