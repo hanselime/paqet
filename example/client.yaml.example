@@ -41,6 +41,8 @@ network:
   # pcap:
     # sockbuf: 4194304                        # 4MB buffer (default for client)
 
+  # driver: "ebpf"                          # optional (pcap, ebpf)
+
 # Server connection settings
 server:
   addr: "10.0.0.100:9999"  # CHANGE ME: paqet server address and port

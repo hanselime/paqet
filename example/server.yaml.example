@@ -35,6 +35,8 @@ network:
   # pcap:
     # sockbuf: 8388608                         # 8MB buffer (default for server)
 
+  # driver: "ebpf"                          # optional (pcap, ebpf)
+
 # Transport protocol configuration
 transport:
   protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
