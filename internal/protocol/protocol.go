@@ -107,8 +107,8 @@ func (p *Proto) Write(w io.Writer) error {
 			return errors.New("protocol: address required")
 		}
 		host := []byte(p.Addr.Host)
-		if len(host) == 0 || len(host) > maxHostLen {
-			return fmt.Errorf("protocol: host length %d out of range (1..%d)", len(host), maxHostLen)
+		if len(host) > maxHostLen {
+			return fmt.Errorf("protocol: host length %d exceeds max %d", len(host), maxHostLen)
 		}
 		if p.Addr.Port < 0 || p.Addr.Port > 0xFFFF {
 			return fmt.Errorf("protocol: port %d out of range", p.Addr.Port)
@@ -158,8 +158,8 @@ func (p *Proto) Read(r io.Reader) error {
 			return err
 		}
 		n := int(hl[0])
-		if n == 0 || n > maxHostLen {
-			return fmt.Errorf("protocol: host length %d out of range (1..%d)", n, maxHostLen)
+		if n > maxHostLen {
+			return fmt.Errorf("protocol: host length %d exceeds max %d", n, maxHostLen)
 		}
 		body, err := readFull(r, n+2)
 		if err != nil {
