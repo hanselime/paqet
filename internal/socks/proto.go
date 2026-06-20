@@ -77,7 +77,7 @@ func readAddr(r io.Reader) (atyp byte, addr, port []byte, err error) {
 	return
 }
 
-func appendAddr(buf []byte, ip net.IP, port int) []byte {
+func putAddr(buf []byte, ip net.IP, port int) []byte {
 	if ip4 := ip.To4(); ip4 != nil {
 		buf = append(buf, atypIPv4)
 		buf = append(buf, ip4...)
@@ -99,10 +99,12 @@ type datagram struct {
 	data []byte
 }
 
-func (d *datagram) address() string { return addrString(d.atyp, d.addr, d.port) }
+func (d *datagram) address() string {
+	return addrString(d.atyp, d.addr, d.port)
+}
 
 func (d *datagram) bytes() []byte {
-	buf := make([]byte, 0, 4+len(d.addr)+2+len(d.data))
+	buf := make([]byte, 0, 5+len(d.addr)+2+len(d.data))
 	buf = append(buf, 0, 0, 0, d.atyp) // RSV(2) + FRAG(1) + ATYP
 	if d.atyp == atypDomain {
 		buf = append(buf, byte(len(d.addr)))
@@ -112,7 +114,7 @@ func (d *datagram) bytes() []byte {
 	return append(buf, d.data...)
 }
 
-func parseDatagram(p []byte) (*datagram, error) {
+func decodeDatagram(p []byte) (*datagram, error) {
 	if len(p) < 4 || p[2] != 0 {
 		return nil, errProtocol
 	}

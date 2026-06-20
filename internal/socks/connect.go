@@ -8,21 +8,20 @@ import (
 	"paqet/internal/pkg/buffer"
 )
 
-func (s *Server) handleConnect(ctx context.Context, conn *net.TCPConn, req *request) {
-	flog.Infof("SOCKS5 accepted TCP connection %s -> %s", conn.RemoteAddr(), req.address())
-
-	local := conn.LocalAddr().(*net.TCPAddr)
-	reply := append([]byte{ver, repSuccess, 0x00}, appendAddr(nil, local.IP, local.Port)...)
-	if _, err := conn.Write(reply); err != nil {
-		return
-	}
-
+func (s *Server) handleConnect(ctx context.Context, conn net.Conn, req *request) {
 	strm, err := s.client.TCP(req.address())
 	if err != nil {
 		flog.Errorf("SOCKS5 failed to establish stream for %s -> %s: %v", conn.RemoteAddr(), req.address(), err)
+		s.write(conn, repFailure)
 		return
 	}
 	defer strm.Close()
+	flog.Infof("SOCKS5 accepted TCP connection %s -> %s", conn.RemoteAddr(), req.address())
+
+	lAddr := conn.LocalAddr().(*net.TCPAddr)
+	if _, err := conn.Write(append([]byte{ver, repSuccess, 0x00}, putAddr(nil, lAddr.IP, lAddr.Port)...)); err != nil {
+		return
+	}
 	flog.Debugf("SOCKS5 stream %d created for %s -> %s", strm.SID(), conn.RemoteAddr(), req.address())
 
 	errCh := make(chan error, 2)

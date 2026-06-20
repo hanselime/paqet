@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"time"
 
 	"paqet/internal/client"
 	"paqet/internal/conf"
@@ -14,9 +15,6 @@ type Server struct {
 	client   *client.Client
 	username string
 	password string
-
-	tcp *net.TCPListener
-	udp *net.UDPConn
 }
 
 func New(client *client.Client) (*Server, error) {
@@ -24,55 +22,48 @@ func New(client *client.Client) (*Server, error) {
 }
 
 func (s *Server) Start(ctx context.Context, cfg conf.SOCKS5) error {
-	addr, err := net.ResolveTCPAddr("tcp", cfg.Listen.String())
+	s.username, s.password = cfg.Username, cfg.Password
+
+	listener, err := net.Listen("tcp", cfg.Listen.String())
 	if err != nil {
 		return err
 	}
-	if s.tcp, err = net.ListenTCP("tcp", addr); err != nil {
-		return err
-	}
-	if s.udp, err = net.ListenUDP("udp", &net.UDPAddr{IP: addr.IP, Port: addr.Port}); err != nil {
-		s.tcp.Close()
-		return err
-	}
-	s.username, s.password = cfg.Username, cfg.Password
+	flog.Infof("SOCKS5 server listening on %s", cfg.Listen.String())
 
-	flog.Infof("SOCKS5 server listening on %s", addr)
-	go s.serveUDP(ctx)
-	go s.serve(ctx)
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go func() {
+				defer conn.Close()
+				s.handleTCPConn(ctx, conn)
+			}()
+		}
+	}()
 
 	go func() {
 		<-ctx.Done()
-		s.tcp.Close()
-		s.udp.Close()
-		flog.Debugf("SOCKS5 server on %s shut down", addr)
+		listener.Close()
+		flog.Debugf("SOCKS5 server on %s shut down", cfg.Listen.String())
 	}()
+
 	return nil
 }
 
-func (s *Server) needAuth() bool { return s.username != "" || s.password != "" }
-
-func (s *Server) serve(ctx context.Context) {
-	for {
-		conn, err := s.tcp.AcceptTCP()
-		if err != nil {
-			return
-		}
-		go s.handleConn(ctx, conn)
-	}
-}
-
-func (s *Server) handleConn(ctx context.Context, conn *net.TCPConn) {
-	defer conn.Close()
+func (s *Server) handleTCPConn(ctx context.Context, conn net.Conn) {
+	conn.SetDeadline(time.Now().Add(8 * time.Second))
 	if err := s.negotiate(conn); err != nil {
 		flog.Debugf("SOCKS5 negotiation with %s failed: %v", conn.RemoteAddr(), err)
 		return
 	}
-	req, err := s.readRequest(conn)
+	req, err := s.read(conn)
 	if err != nil {
 		flog.Debugf("SOCKS5 request from %s failed: %v", conn.RemoteAddr(), err)
 		return
 	}
+	conn.SetDeadline(time.Time{})
 
 	switch req.cmd {
 	case cmdConnect:
@@ -80,14 +71,14 @@ func (s *Server) handleConn(ctx context.Context, conn *net.TCPConn) {
 		s.handleConnect(ctx, conn, req)
 	case cmdUDP:
 		flog.Debugf("SOCKS5 UDP_ASSOCIATE from %s", conn.RemoteAddr())
-		s.handleAssociate(ctx, conn)
+		s.handleAssociate(ctx, conn, req)
 	default:
 		flog.Debugf("SOCKS5 unsupported command %d from %s", req.cmd, conn.RemoteAddr())
-		s.writeReply(conn, repCmdUnsupp)
+		s.write(conn, repCmdUnsupp)
 	}
 }
 
-func (s *Server) negotiate(conn *net.TCPConn) error {
+func (s *Server) negotiate(conn net.Conn) error {
 	var hdr [2]byte
 	if _, err := io.ReadFull(conn, hdr[:]); err != nil {
 		return err
@@ -101,7 +92,7 @@ func (s *Server) negotiate(conn *net.TCPConn) error {
 	}
 
 	want := byte(methodNone)
-	if s.needAuth() {
+	if s.username != "" || s.password != "" {
 		want = methodAuth
 	}
 	for _, m := range methods {
@@ -110,7 +101,7 @@ func (s *Server) negotiate(conn *net.TCPConn) error {
 				return err
 			}
 			if want == methodAuth {
-				return s.checkAuth(conn)
+				return s.authenticate(conn)
 			}
 			return nil
 		}
@@ -119,10 +110,13 @@ func (s *Server) negotiate(conn *net.TCPConn) error {
 	return errProtocol
 }
 
-func (s *Server) checkAuth(conn *net.TCPConn) error {
+func (s *Server) authenticate(conn net.Conn) error {
 	var b [2]byte
 	if _, err := io.ReadFull(conn, b[:]); err != nil { // VER + ULEN
 		return err
+	}
+	if b[0] != verAuth {
+		return errProtocol
 	}
 	user := make([]byte, b[1])
 	if _, err := io.ReadFull(conn, user); err != nil {
@@ -143,7 +137,7 @@ func (s *Server) checkAuth(conn *net.TCPConn) error {
 	return errProtocol
 }
 
-func (s *Server) readRequest(conn *net.TCPConn) (*request, error) {
+func (s *Server) read(conn net.Conn) (*request, error) {
 	var hdr [3]byte
 	if _, err := io.ReadFull(conn, hdr[:]); err != nil {
 		return nil, err
@@ -158,7 +152,7 @@ func (s *Server) readRequest(conn *net.TCPConn) (*request, error) {
 	return &request{cmd: hdr[1], atyp: atyp, addr: addr, port: port}, nil
 }
 
-func (s *Server) writeReply(conn *net.TCPConn, rep byte) error {
+func (s *Server) write(conn net.Conn, rep byte) error {
 	_, err := conn.Write([]byte{ver, rep, 0x00, atypIPv4, 0, 0, 0, 0, 0, 0})
 	return err
 }
