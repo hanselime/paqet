@@ -6,13 +6,11 @@ import (
 	"paqet/internal/tnet"
 )
 
-func (s *Server) handlePing(strm tnet.Strm) error {
+func (s *Server) handlePing(strm tnet.Strm) {
 	flog.Debugf("accepted ping on stream %d from %s", strm.SID(), strm.RemoteAddr())
 	p := protocol.Proto{Type: protocol.PPONG}
 	if err := p.Write(strm); err != nil {
 		flog.Errorf("failed to send pong on stream %d: %v", strm.SID(), err)
-		return err
 	}
 	flog.Debugf("sent pong on stream %d", strm.SID())
-	return nil
 }

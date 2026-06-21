@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"paqet/internal/flog"
 	"paqet/internal/protocol"
@@ -22,39 +21,32 @@ func (s *Server) handleConn(ctx context.Context, conn tnet.Conn) {
 			flog.Errorf("failed to accept stream on %s: %v", conn.RemoteAddr(), err)
 			return
 		}
-		s.wg.Go(func() {
+		go func() {
 			defer strm.Close()
-			if err := s.handleStrm(ctx, strm); err != nil {
-				flog.Errorf("stream %d from %s closed with error: %v", strm.SID(), strm.RemoteAddr(), err)
-			} else {
-				flog.Debugf("stream %d from %s closed", strm.SID(), strm.RemoteAddr())
-			}
-		})
+			s.handleStrm(ctx, strm)
+			flog.Debugf("stream %d from %s closed", strm.SID(), strm.RemoteAddr())
+		}()
 	}
 }
 
-func (s *Server) handleStrm(ctx context.Context, strm tnet.Strm) error {
+func (s *Server) handleStrm(ctx context.Context, strm tnet.Strm) {
 	var p protocol.Proto
 	err := p.Read(strm)
 	if err != nil {
 		flog.Errorf("failed to read protocol message from stream %d: %v", strm.SID(), err)
-		return err
+		return
 	}
 
 	switch p.Type {
 	case protocol.PPING:
-		return s.handlePing(strm)
+		s.handlePing(strm)
 	case protocol.PTCPF:
-		if len(p.TCPF) != 0 {
-			s.pConn.SetClientTCPF(strm.RemoteAddr(), p.TCPF)
-		}
-		return nil
+		s.pConn.SetClientTCPF(strm.RemoteAddr(), p.TCPF)
 	case protocol.PTCP:
-		return s.handleTCPProtocol(ctx, strm, &p)
+		s.handleTCPProtocol(ctx, strm, &p)
 	case protocol.PUDP:
-		return s.handleUDPProtocol(ctx, strm, &p)
+		s.handleUDPProtocol(ctx, strm, &p)
 	default:
 		flog.Errorf("unknown protocol type %d on stream %d", p.Type, strm.SID())
-		return fmt.Errorf("unknown protocol type: %d", p.Type)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"paqet/internal/conf"
@@ -18,7 +17,6 @@ import (
 type Server struct {
 	cfg   *conf.Conf
 	pConn *socket.PacketConn
-	wg    sync.WaitGroup
 }
 
 func New(cfg *conf.Conf) (*Server, error) {
@@ -53,20 +51,14 @@ func (s *Server) Start() error {
 	defer listener.Close()
 	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
 
-	s.wg.Go(func() {
-		s.listen(ctx, listener)
-	})
+	go s.listen(ctx, listener)
 
-	s.wg.Wait()
+	<-ctx.Done()
 	flog.Infof("Server shutdown completed")
 	return nil
 }
 
 func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-	}()
 	for {
 		select {
 		case <-ctx.Done():
@@ -80,10 +72,10 @@ func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
 		}
 		flog.Infof("accepted new connection from %s (local: %s)", conn.RemoteAddr(), conn.LocalAddr())
 
-		s.wg.Go(func() {
+		go func() {
 			defer conn.Close()
 			defer s.pConn.DeleteClientTCPF(conn.RemoteAddr())
 			s.handleConn(ctx, conn)
-		})
+		}()
 	}
 }
