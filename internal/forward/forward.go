@@ -3,16 +3,16 @@ package forward
 import (
 	"context"
 	"fmt"
+	"net"
+
 	"paqet/internal/client"
 	"paqet/internal/flog"
-	"sync"
 )
 
 type Forward struct {
 	client     *client.Client
 	listenAddr string
 	targetAddr string
-	wg         sync.WaitGroup
 }
 
 func New(client *client.Client, listenAddr, targetAddr string) (*Forward, error) {
@@ -37,17 +37,36 @@ func (f *Forward) Start(ctx context.Context, protocol string) error {
 }
 
 func (f *Forward) startTCP(ctx context.Context) error {
-	f.wg.Go(func() {
-		if err := f.listenTCP(ctx); err != nil {
-			flog.Debugf("TCP forwarder stopped with: %v", err)
-		}
-	})
+	listener, err := net.Listen("tcp", f.listenAddr)
+	if err != nil {
+		flog.Errorf("failed to bind TCP socket on %s: %v", f.listenAddr, err)
+		return err
+	}
+
+	go func() {
+		f.serveTCP(ctx, listener)
+		<-ctx.Done()
+		listener.Close()
+	}()
 	return nil
 }
 
 func (f *Forward) startUDP(ctx context.Context) error {
-	f.wg.Go(func() {
-		f.listenUDP(ctx)
-	})
+	laddr, err := net.ResolveUDPAddr("udp", f.listenAddr)
+	if err != nil {
+		flog.Errorf("failed to resolve UDP listen address '%s': %v", f.listenAddr, err)
+		return err
+	}
+	conn, err := net.ListenUDP("udp", laddr)
+	if err != nil {
+		flog.Errorf("failed to bind UDP socket on %s: %v", laddr, err)
+		return err
+	}
+
+	go func() {
+		f.serveUDP(ctx, conn)
+		<-ctx.Done()
+		conn.Close()
+	}()
 	return nil
 }

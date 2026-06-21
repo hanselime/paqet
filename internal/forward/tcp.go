@@ -3,21 +3,12 @@ package forward
 import (
 	"context"
 	"net"
+
 	"paqet/internal/flog"
 	"paqet/internal/pkg/buffer"
 )
 
-func (f *Forward) listenTCP(ctx context.Context) error {
-	listener, err := net.Listen("tcp", f.listenAddr)
-	if err != nil {
-		flog.Errorf("failed to bind TCP socket on %s: %v", f.listenAddr, err)
-		return err
-	}
-	defer listener.Close()
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-	}()
+func (f *Forward) serveTCP(ctx context.Context, listener net.Listener) {
 	flog.Infof("TCP forwarder listening on %s -> %s", f.listenAddr, f.targetAddr)
 
 	for {
@@ -25,54 +16,38 @@ func (f *Forward) listenTCP(ctx context.Context) error {
 		if err != nil {
 			select {
 			case <-ctx.Done():
-				return nil
+				return
 			default:
 				flog.Errorf("failed to accept TCP connection on %s: %v", f.listenAddr, err)
 				continue
 			}
 		}
 
-		f.wg.Go(func() {
+		go func() {
 			defer conn.Close()
-			if err := f.handleTCPConn(ctx, conn); err != nil {
-				flog.Errorf("TCP connection %s -> %s closed with error: %v", conn.RemoteAddr(), f.targetAddr, err)
-			} else {
-				flog.Debugf("TCP connection %s -> %s closed", conn.RemoteAddr(), f.targetAddr)
-			}
-		})
+			f.handleTCPConn(ctx, conn)
+		}()
 	}
 }
 
-func (f *Forward) handleTCPConn(ctx context.Context, conn net.Conn) error {
+func (f *Forward) handleTCPConn(ctx context.Context, conn net.Conn) {
 	strm, err := f.client.TCP(f.targetAddr)
 	if err != nil {
 		flog.Errorf("failed to establish stream for %s -> %s: %v", conn.RemoteAddr(), f.targetAddr, err)
-		return err
+		return
 	}
-	defer func() {
-		flog.Debugf("TCP stream closed for %s -> %s", conn.RemoteAddr(), f.targetAddr)
-		defer strm.Close()
-	}()
+	defer strm.Close()
 	flog.Infof("accepted TCP connection %s -> %s", conn.RemoteAddr(), f.targetAddr)
 
 	errCh := make(chan error, 2)
-	go func() {
-		err := buffer.CopyT(conn, strm)
-		errCh <- err
-	}()
-	go func() {
-		err := buffer.CopyT(strm, conn)
-		errCh <- err
-	}()
+	go func() { errCh <- buffer.CopyT(conn, strm) }()
+	go func() { errCh <- buffer.CopyT(strm, conn) }()
 
 	select {
 	case err := <-errCh:
 		if err != nil {
 			flog.Errorf("TCP stream %d failed for %s -> %s: %v", strm.SID(), conn.RemoteAddr(), f.targetAddr, err)
-			return err
 		}
 	case <-ctx.Done():
 	}
-
-	return nil
 }
