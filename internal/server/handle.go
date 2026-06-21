@@ -41,7 +41,7 @@ func (s *Server) handleStrm(ctx context.Context, strm tnet.Strm) {
 	case protocol.PPING:
 		s.handlePing(strm)
 	case protocol.PTCPF:
-		s.pConn.SetClientTCPF(strm.RemoteAddr(), p.TCPF)
+		s.listener.SetClientTCPF(strm.RemoteAddr(), p.TCPF)
 	case protocol.PTCP:
 		s.handleTCPProtocol(ctx, strm, &p)
 	case protocol.PUDP:

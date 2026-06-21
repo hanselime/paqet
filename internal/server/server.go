@@ -9,21 +9,17 @@ import (
 
 	"paqet/internal/conf"
 	"paqet/internal/flog"
-	"paqet/internal/socket"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
 )
 
 type Server struct {
-	cfg   *conf.Conf
-	pConn *socket.PacketConn
+	cfg      *conf.Conf
+	listener tnet.Listener
 }
 
 func New(cfg *conf.Conf) (*Server, error) {
-	s := &Server{
-		cfg: cfg,
-	}
-
+	s := &Server{cfg: cfg}
 	return s, nil
 }
 
@@ -38,17 +34,12 @@ func (s *Server) Start() error {
 		cancel()
 	}()
 
-	pConn, err := socket.New(ctx, &s.cfg.Network)
-	if err != nil {
-		return fmt.Errorf("could not create raw packet conn: %w", err)
-	}
-	s.pConn = pConn
-
-	listener, err := kcp.Listen(s.cfg.Transport.KCP, pConn)
+	listener, err := kcp.Listen(ctx, s.cfg.Transport.KCP, s.cfg.Network)
 	if err != nil {
 		return fmt.Errorf("could not start KCP listener: %w", err)
 	}
 	defer listener.Close()
+	s.listener = listener
 	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
 
 	go s.listen(ctx, listener)
@@ -74,7 +65,7 @@ func (s *Server) listen(ctx context.Context, listener tnet.Listener) {
 
 		go func() {
 			defer conn.Close()
-			defer s.pConn.DeleteClientTCPF(conn.RemoteAddr())
+			defer s.listener.DeleteClientTCPF(conn.RemoteAddr())
 			s.handleConn(ctx, conn)
 		}()
 	}

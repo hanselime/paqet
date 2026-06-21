@@ -2,13 +2,12 @@ package client
 
 import (
 	"context"
-	"fmt"
+	"time"
+
 	"paqet/internal/conf"
 	"paqet/internal/protocol"
-	"paqet/internal/socket"
 	"paqet/internal/tnet"
 	"paqet/internal/tnet/kcp"
-	"time"
 )
 
 type timedConn struct {
@@ -30,13 +29,7 @@ func newTimedConn(ctx context.Context, cfg *conf.Conf) (*timedConn, error) {
 }
 
 func (tc *timedConn) createConn() (tnet.Conn, error) {
-	netCfg := tc.cfg.Network
-	pConn, err := socket.New(tc.ctx, &netCfg)
-	if err != nil {
-		return nil, fmt.Errorf("could not create packet conn: %w", err)
-	}
-
-	conn, err := kcp.Dial(tc.cfg.Server.Addr, tc.cfg.Transport.KCP, pConn)
+	conn, err := kcp.Dial(tc.ctx, tc.cfg.Server.Addr, tc.cfg.Transport.KCP, tc.cfg.Network)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,7 @@
 package kcp
 
 import (
+	"context"
 	"net"
 
 	"github.com/xtaci/kcp-go/v5"
@@ -12,18 +13,25 @@ import (
 )
 
 type Listener struct {
-	packetConn *socket.PacketConn
+	PacketConn *socket.PacketConn
 	cfg        *conf.KCP
 	listener   *kcp.Listener
 }
 
-func Listen(cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Listener, error) {
-	l, err := kcp.ServeConn(cfg.Block, cfg.Dshard, cfg.Pshard, pConn)
+func Listen(ctx context.Context, cfg *conf.KCP, netCfg conf.Network) (tnet.Listener, error) {
+	nCfg := netCfg
+	packetConn, err := socket.New(ctx, &nCfg)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Listener{packetConn: pConn, cfg: cfg, listener: l}, nil
+	l, err := kcp.ServeConn(cfg.Block, cfg.Dshard, cfg.Pshard, packetConn)
+	if err != nil {
+		packetConn.Close()
+		return nil, err
+	}
+
+	return &Listener{PacketConn: packetConn, cfg: cfg, listener: l}, nil
 }
 
 func (l *Listener) Accept() (tnet.Conn, error) {
@@ -47,8 +55,8 @@ func (l *Listener) Close() error {
 			err = e
 		}
 	}
-	if l.packetConn != nil {
-		if e := l.packetConn.Close(); e != nil && err == nil {
+	if l.PacketConn != nil {
+		if e := l.PacketConn.Close(); e != nil && err == nil {
 			err = e
 		}
 	}
@@ -57,4 +65,12 @@ func (l *Listener) Close() error {
 
 func (l *Listener) Addr() net.Addr {
 	return l.listener.Addr()
+}
+
+func (l *Listener) SetClientTCPF(addr net.Addr, f []conf.TCPF) {
+	l.PacketConn.SetClientTCPF(addr, f)
+}
+
+func (l *Listener) DeleteClientTCPF(addr net.Addr) {
+	l.PacketConn.DeleteClientTCPF(addr)
 }
