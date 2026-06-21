@@ -3,13 +3,14 @@ package kcp
 import (
 	"fmt"
 	"net"
+
+	"github.com/xtaci/kcp-go/v5"
+	"github.com/xtaci/smux"
+
 	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"paqet/internal/socket"
 	"paqet/internal/tnet"
-
-	"github.com/xtaci/kcp-go/v5"
-	"github.com/xtaci/smux"
 )
 
 func Dial(addr *net.UDPAddr, cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Conn, error) {
@@ -22,6 +23,7 @@ func Dial(addr *net.UDPAddr, cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Conn
 
 	sess, err := smux.Client(conn, smuxConf(cfg))
 	if err != nil {
+		conn.Close()
 		return nil, fmt.Errorf("failed to create smux session: %w", err)
 	}
 

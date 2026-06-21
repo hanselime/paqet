@@ -2,18 +2,18 @@ package kcp
 
 import (
 	"net"
-	"paqet/internal/conf"
-	"paqet/internal/socket"
-	"paqet/internal/tnet"
 
 	"github.com/xtaci/kcp-go/v5"
 	"github.com/xtaci/smux"
+
+	"paqet/internal/conf"
+	"paqet/internal/socket"
+	"paqet/internal/tnet"
 )
 
 type Listener struct {
-	packetConn *socket.PacketConn
-	cfg        *conf.KCP
-	listener   *kcp.Listener
+	cfg      *conf.KCP
+	listener *kcp.Listener
 }
 
 func Listen(cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Listener, error) {
@@ -22,7 +22,7 @@ func Listen(cfg *conf.KCP, pConn *socket.PacketConn) (tnet.Listener, error) {
 		return nil, err
 	}
 
-	return &Listener{packetConn: pConn, cfg: cfg, listener: l}, nil
+	return &Listener{cfg: cfg, listener: l}, nil
 }
 
 func (l *Listener) Accept() (tnet.Conn, error) {
@@ -33,19 +33,20 @@ func (l *Listener) Accept() (tnet.Conn, error) {
 	aplConf(conn, l.cfg)
 	sess, err := smux.Server(conn, smuxConf(l.cfg))
 	if err != nil {
+		conn.Close()
 		return nil, err
 	}
 	return &Conn{nil, conn, sess}, nil
 }
 
 func (l *Listener) Close() error {
+	var err error
 	if l.listener != nil {
-		l.listener.Close()
+		if e := l.listener.Close(); e != nil {
+			err = e
+		}
 	}
-	if l.packetConn != nil {
-		l.packetConn.Close()
-	}
-	return nil
+	return err
 }
 
 func (l *Listener) Addr() net.Addr {

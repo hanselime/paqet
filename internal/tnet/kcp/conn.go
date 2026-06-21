@@ -3,13 +3,14 @@ package kcp
 import (
 	"fmt"
 	"net"
-	"paqet/internal/protocol"
-	"paqet/internal/socket"
-	"paqet/internal/tnet"
 	"time"
 
 	"github.com/xtaci/kcp-go/v5"
 	"github.com/xtaci/smux"
+
+	"paqet/internal/protocol"
+	"paqet/internal/socket"
+	"paqet/internal/tnet"
 )
 
 type Conn struct {
@@ -37,21 +38,21 @@ func (c *Conn) AcceptStrm() (tnet.Strm, error) {
 func (c *Conn) Ping(wait bool) error {
 	strm, err := c.Session.OpenStream()
 	if err != nil {
-		return fmt.Errorf("ping failed: %v", err)
+		return fmt.Errorf("ping failed: %w", err)
 	}
 	defer strm.Close()
 	if wait {
 		p := protocol.Proto{Type: protocol.PPING}
 		err = p.Write(strm)
 		if err != nil {
-			return fmt.Errorf("strm ping write failed: %v", err)
+			return fmt.Errorf("strm ping write failed: %w", err)
 		}
 		err = p.Read(strm)
 		if err != nil {
-			return fmt.Errorf("strm ping read failed: %v", err)
+			return fmt.Errorf("strm ping read failed: %w", err)
 		}
 		if p.Type != protocol.PPONG {
-			return fmt.Errorf("strm pong failed: %v", err)
+			return fmt.Errorf("strm pong failed: unexpected type %d", p.Type)
 		}
 	}
 	return nil
@@ -59,20 +60,26 @@ func (c *Conn) Ping(wait bool) error {
 
 func (c *Conn) Close() error {
 	var err error
-	if c.UDPSession != nil {
-		c.UDPSession.Close()
-	}
 	if c.Session != nil {
-		c.Session.Close()
+		if e := c.Session.Close(); e != nil {
+			err = e
+		}
+	}
+	if c.UDPSession != nil {
+		if e := c.UDPSession.Close(); e != nil && err == nil {
+			err = e
+		}
 	}
 	if c.PacketConn != nil {
-		c.PacketConn.Close()
+		if e := c.PacketConn.Close(); e != nil && err == nil {
+			err = e
+		}
 	}
 	return err
 }
 
 func (c *Conn) LocalAddr() net.Addr                { return c.Session.LocalAddr() }
 func (c *Conn) RemoteAddr() net.Addr               { return c.Session.RemoteAddr() }
-func (c *Conn) SetDeadline(t time.Time) error      { return c.Session.SetDeadline(t) }
+func (c *Conn) SetDeadline(t time.Time) error      { return c.UDPSession.SetDeadline(t) }
 func (c *Conn) SetReadDeadline(t time.Time) error  { return c.UDPSession.SetReadDeadline(t) }
 func (c *Conn) SetWriteDeadline(t time.Time) error { return c.UDPSession.SetWriteDeadline(t) }
