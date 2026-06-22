@@ -194,7 +194,7 @@ jobs:
                   choco install mingw -y
 
             - name: Checkout Code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
 
             - name: Setup Go
               uses: actions/setup-go@v6
@@ -255,7 +255,7 @@ jobs:
                 goarch: [amd64, arm64]
         steps:
             - name: Checkout Code
-              uses: actions/checkout@v6
+              uses: actions/checkout@v7
 
             - name: Setup Go
               uses: actions/setup-go@v6

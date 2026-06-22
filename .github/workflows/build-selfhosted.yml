@@ -39,7 +39,7 @@ jobs:
                   fi
 
             - name: Checkout Code
-              uses: actions/checkout@v5
+              uses: actions/checkout@v7
 
             - name: Mark repo as safe
               run: git config --global --add safe.directory $GITHUB_WORKSPACE
