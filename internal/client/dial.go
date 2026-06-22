@@ -1,9 +1,10 @@
 package client
 
 import (
+	"time"
+
 	"paqet/internal/flog"
 	"paqet/internal/tnet"
-	"time"
 )
 
 func (c *Client) newConn() (tnet.Conn, error) {
@@ -18,9 +19,11 @@ func (c *Client) newConn() (tnet.Conn, error) {
 		if tc.conn != nil {
 			tc.conn.Close()
 		}
-		if c, err := tc.createConn(); err == nil {
-			tc.conn = c
+		conn, err := tc.createConn()
+		if err != nil {
+			return nil, err
 		}
+		tc.conn = conn
 		tc.expire = time.Now().Add(time.Duration(autoExpire) * time.Second)
 	}
 	return tc.conn, nil
@@ -29,7 +32,7 @@ func (c *Client) newConn() (tnet.Conn, error) {
 func (c *Client) newStrm() (tnet.Strm, error) {
 	conn, err := c.newConn()
 	if err != nil {
-		flog.Debugf("session creation failed, retrying")
+		flog.Debugf("failed to open conn, retrying: %v", err)
 		return c.newStrm()
 	}
 	strm, err := conn.OpenStrm()
