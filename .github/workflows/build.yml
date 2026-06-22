@@ -174,7 +174,7 @@ jobs:
                     example/server.yaml.example
 
             - name: Upload Artifact
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v7
               with:
                   name: paqet-linux-${{ matrix.filename }}
                   path: dist/paqet-linux-${{ matrix.filename }}-${{ steps.ref_id.outputs.ref }}.tar.gz
@@ -242,7 +242,7 @@ jobs:
                     example/server.yaml.example
 
             - name: Upload Artifact
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: paqet-windows-${{ matrix.goarch }}
                   path: dist/paqet-windows-${{ matrix.goarch }}-${{ steps.ref_id.outputs.ref }}.zip
@@ -302,7 +302,7 @@ jobs:
                     example/server.yaml.example
 
             - name: Upload Artifact
-              uses: actions/upload-artifact@v6
+              uses: actions/upload-artifact@v7
               with:
                   name: paqet-darwin-${{ matrix.goarch }}
                   path: dist/paqet-darwin-${{ matrix.goarch }}-${{ steps.ref_id.outputs.ref }}.tar.gz
