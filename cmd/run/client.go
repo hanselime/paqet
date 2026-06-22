@@ -2,7 +2,7 @@ package run
 
 import (
 	"context"
-	"os"
+	"fmt"
 	"os/signal"
 	"syscall"
 
@@ -15,15 +15,8 @@ import (
 
 func startClient(cfg *conf.Conf) {
 	flog.Infof("Starting client...")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sig
-		flog.Infof("Shutdown signal received, initiating graceful shutdown...")
-		cancel()
-	}()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	client, err := client.New(cfg)
 	if err != nil {
@@ -42,6 +35,7 @@ func startClient(cfg *conf.Conf) {
 			flog.Fatalf("SOCKS5 encountered an error: %v", err)
 		}
 	}
+
 	for _, ff := range cfg.Forward {
 		f, err := forward.New(client, ff.Listen.String(), ff.Target)
 		if err != nil {
@@ -53,4 +47,5 @@ func startClient(cfg *conf.Conf) {
 	}
 
 	<-ctx.Done()
+	fmt.Println("Shutdown signal received, shutting down...")
 }

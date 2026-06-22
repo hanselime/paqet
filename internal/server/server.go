@@ -3,9 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"paqet/internal/conf"
 	"paqet/internal/flog"
@@ -23,29 +20,20 @@ func New(cfg *conf.Conf) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) Start() error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sig
-		flog.Infof("Shutdown signal received, initiating graceful shutdown...")
-		cancel()
-	}()
-
+func (s *Server) Start(ctx context.Context) error {
 	listener, err := kcp.Listen(ctx, s.cfg.Transport.KCP, s.cfg.Network)
 	if err != nil {
 		return fmt.Errorf("could not start KCP listener: %w", err)
 	}
-	defer listener.Close()
 	s.listener = listener
 	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
 
-	go s.listen(ctx, listener)
+	go func() {
+		s.listen(ctx, listener)
+		<-ctx.Done()
+		listener.Close()
+	}()
 
-	<-ctx.Done()
-	flog.Infof("Server shutdown completed")
 	return nil
 }
 

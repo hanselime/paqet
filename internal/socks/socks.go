@@ -46,7 +46,6 @@ func (s *Server) Start(ctx context.Context, cfg conf.SOCKS5) error {
 	go func() {
 		<-ctx.Done()
 		listener.Close()
-		flog.Debugf("SOCKS5 server on %s shut down", cfg.Listen.String())
 	}()
 
 	return nil

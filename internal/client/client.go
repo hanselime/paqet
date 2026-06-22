@@ -2,11 +2,12 @@ package client
 
 import (
 	"context"
+	"sync"
+
 	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"paqet/internal/pkg/iterator"
 	"paqet/internal/tnet"
-	"sync"
 )
 
 type Client struct {
@@ -35,14 +36,13 @@ func (c *Client) Start(ctx context.Context) error {
 		flog.Debugf("client connection %d created successfully", i+1)
 		c.iter.Items = append(c.iter.Items, tc)
 	}
-	go c.ticker(ctx)
 
 	go func() {
+		c.ticker(ctx)
 		<-ctx.Done()
 		for _, tc := range c.iter.Items {
 			tc.close()
 		}
-		flog.Infof("client shutdown complete")
 	}()
 
 	ipv4Addr := "<nil>"
