@@ -314,7 +314,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         steps:
             - name: Download all build artifacts
-              uses: actions/download-artifact@v7
+              uses: actions/download-artifact@v8
               with:
                   path: ./dist
                   pattern: paqet-*
