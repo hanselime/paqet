@@ -48,7 +48,7 @@ jobs:
 
             - name: Install Go
               run: |
-                  GO_VERSION=1.26.0
+                  GO_VERSION=1.26.4
                   GO_ARCH=amd64
                   
                   wget -q https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz
