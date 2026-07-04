@@ -33,7 +33,9 @@ func (t *Transport) setDefaults(role string) {
 
 	switch t.Protocol {
 	case "kcp":
-		t.KCP.setDefaults(role)
+		if t.KCP != nil {
+			t.KCP.setDefaults(role)
+		}
 	}
 }
 
@@ -51,7 +53,11 @@ func (t *Transport) validate() []error {
 
 	switch t.Protocol {
 	case "kcp":
-		errors = append(errors, t.KCP.validate()...)
+		if t.KCP == nil {
+			errors = append(errors, fmt.Errorf("transport.kcp configuration is required"))
+		} else {
+			errors = append(errors, t.KCP.validate()...)
+		}
 	}
 
 	return errors

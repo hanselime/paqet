@@ -30,7 +30,7 @@ func LoadFromFile(path string) (*Conf, error) {
 	var conf Conf
 
 	if err := yaml.Unmarshal(data, &conf); err != nil {
-		return &conf, err
+		return nil, err
 	}
 
 	validRoles := []string{"client", "server"}
@@ -40,7 +40,7 @@ func LoadFromFile(path string) (*Conf, error) {
 
 	conf.setDefaults()
 	if err := conf.validate(); err != nil {
-		return &conf, err
+		return nil, err
 	}
 
 	return &conf, nil
@@ -87,11 +87,14 @@ func (c *Conf) validate() error {
 		allErrors = append(allErrors, c.Listen.validate()...)
 	} else {
 		allErrors = append(allErrors, c.Server.validate()...)
-		if c.Server.Addr.IP.To4() != nil && c.Network.IPv4.Addr == nil {
-			allErrors = append(allErrors, fmt.Errorf("server address is IPv4, but the IPv4 interface is not configured"))
-		}
-		if c.Server.Addr.IP.To4() == nil && c.Network.IPv6.Addr == nil {
-			allErrors = append(allErrors, fmt.Errorf("server address is IPv6, but the IPv6 interface is not configured"))
+		if c.Server.Addr != nil {
+			family, local := "IPv6", c.Network.IPv6.Addr
+			if c.Server.Addr.IP.To4() != nil {
+				family, local = "IPv4", c.Network.IPv4.Addr
+			}
+			if local == nil {
+				allErrors = append(allErrors, fmt.Errorf("server address is %s, but the %s interface is not configured", family, family))
+			}
 		}
 		if c.Transport.Conn > 1 && c.Network.Port != 0 {
 			allErrors = append(allErrors, fmt.Errorf("only one connection is allowed when a client port is explicitly set"))

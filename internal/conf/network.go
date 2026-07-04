@@ -48,27 +48,27 @@ func (n *Network) validate() []error {
 		errors = append(errors, fmt.Errorf("guid is required on windows"))
 	}
 
-	ipv4Configured := n.IPv4.Addr_ != ""
-	ipv6Configured := n.IPv6.Addr_ != ""
-	if !ipv4Configured && !ipv6Configured {
+	if n.IPv4.Addr_ == "" && n.IPv6.Addr_ == "" {
 		errors = append(errors, fmt.Errorf("at least one address family (IPv4 or IPv6) must be configured"))
 		return errors
 	}
-	if ipv4Configured {
+	if n.IPv4.Addr_ != "" {
 		errors = append(errors, n.IPv4.validate()...)
 	}
-	if ipv6Configured {
+	if n.IPv6.Addr_ != "" {
 		errors = append(errors, n.IPv6.validate()...)
 	}
-	if ipv4Configured && ipv6Configured {
-		if n.IPv4.Addr.Port != n.IPv6.Addr.Port {
-			errors = append(errors, fmt.Errorf("IPv4 port (%d) and IPv6 port (%d) must match when both are configured", n.IPv4.Addr.Port, n.IPv6.Addr.Port))
-		}
+
+	ipv4OK := n.IPv4.Addr != nil
+	ipv6OK := n.IPv6.Addr != nil
+
+	if ipv4OK && ipv6OK && n.IPv4.Addr.Port != n.IPv6.Addr.Port {
+		errors = append(errors, fmt.Errorf("IPv4 port (%d) and IPv6 port (%d) must match when both are configured", n.IPv4.Addr.Port, n.IPv6.Addr.Port))
 	}
-	if n.IPv4.Addr != nil {
+	if ipv4OK {
 		n.Port = n.IPv4.Addr.Port
 	}
-	if n.IPv6.Addr != nil {
+	if ipv6OK {
 		n.Port = n.IPv6.Addr.Port
 	}
 
