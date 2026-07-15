@@ -98,7 +98,7 @@ func (s *Server) handleUDPConn(ctx context.Context, a *associate, d *datagram) {
 	_, err = strm.Write(d.data)
 	strm.SetWriteDeadline(time.Time{})
 	if err != nil {
-		s.client.CloseUDP(k)
+		s.client.CloseUDP(k, strm)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (s *Server) handleUDPConn(ctx context.Context, a *associate, d *datagram) {
 		flog.Infof("SOCKS5 accepted UDP connection %s -> %s", a.cAddr, d.address())
 		hdr := (&datagram{atyp: d.atyp, addr: d.addr, port: d.port}).bytes()
 		go func() {
-			defer s.client.CloseUDP(k)
+			defer s.client.CloseUDP(k, strm)
 			s.handleUDPStrm(ctx, strm, a, hdr)
 		}()
 	}

@@ -57,6 +57,6 @@ func (c *Client) UDP(ctx context.Context, lAddr, tAddr string) (tnet.Strm, bool,
 	return strm, true, key, nil
 }
 
-func (c *Client) CloseUDP(key uint64) error {
-	return c.udpPool.delete(key)
+func (c *Client) CloseUDP(key uint64, strm tnet.Strm) error {
+	return c.udpPool.delete(key, strm)
 }

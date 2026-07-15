@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
+	"sync"
 
 	"paqet/internal/client"
 	"paqet/internal/flog"
@@ -13,6 +15,9 @@ type Forward struct {
 	client     *client.Client
 	listenAddr string
 	targetAddr string
+
+	udpMu   sync.RWMutex
+	udpPool map[netip.AddrPort]*udpSess
 }
 
 func New(client *client.Client, listenAddr, targetAddr string) (*Forward, error) {
@@ -20,6 +25,7 @@ func New(client *client.Client, listenAddr, targetAddr string) (*Forward, error)
 		client:     client,
 		listenAddr: listenAddr,
 		targetAddr: targetAddr,
+		udpPool:    make(map[netip.AddrPort]*udpSess),
 	}, nil
 }
 
