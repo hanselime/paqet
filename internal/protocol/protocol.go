@@ -24,8 +24,11 @@ const (
 )
 
 const (
-	maxHostLen = 253
-	maxTCPFLen = 64
+	headerLen    = 5 // MAGIC, VERSION, TYPE, LENGTH(2)
+	maxHostLen   = 253
+	maxTCPFCount = 64
+	maxBodyLen   = 4096
+	maxPort      = 0xFFFF
 )
 
 const (
@@ -95,8 +98,7 @@ func readFull(r io.Reader, n int) ([]byte, error) {
 }
 
 func (p *Proto) Write(w io.Writer) error {
-	buf := make([]byte, 0, 64)
-	buf = append(buf, MAGIC, VERSION, p.Type)
+	body := make([]byte, 0, 64)
 
 	switch p.Type {
 	case PPING, PPONG:
@@ -110,32 +112,41 @@ func (p *Proto) Write(w io.Writer) error {
 		if len(host) > maxHostLen {
 			return fmt.Errorf("protocol: host length %d exceeds max %d", len(host), maxHostLen)
 		}
-		if p.Addr.Port < 0 || p.Addr.Port > 0xFFFF {
+		if p.Addr.Port < 0 || p.Addr.Port > maxPort {
 			return fmt.Errorf("protocol: port %d out of range", p.Addr.Port)
 		}
-		buf = append(buf, byte(len(host)))
-		buf = append(buf, host...)
-		buf = binary.BigEndian.AppendUint16(buf, uint16(p.Addr.Port))
+		body = append(body, byte(len(host)))
+		body = append(body, host...)
+		body = binary.BigEndian.AppendUint16(body, uint16(p.Addr.Port))
 
 	case PTCPF:
-		if len(p.TCPF) > maxTCPFLen {
-			return fmt.Errorf("protocol: tcpf count %d exceeds max %d", len(p.TCPF), maxTCPFLen)
+		if len(p.TCPF) > maxTCPFCount {
+			return fmt.Errorf("protocol: tcpf count %d exceeds max %d", len(p.TCPF), maxTCPFCount)
 		}
-		buf = append(buf, byte(len(p.TCPF)))
+		body = append(body, byte(len(p.TCPF)))
 		for _, f := range p.TCPF {
-			buf = binary.BigEndian.AppendUint16(buf, encodeTCPF(f))
+			body = binary.BigEndian.AppendUint16(body, encodeTCPF(f))
 		}
 
 	default:
 		return errors.New("protocol: unknown message type")
 	}
 
+	if len(body) > maxBodyLen {
+		return fmt.Errorf("protocol: body length %d exceeds max %d", len(body), maxBodyLen)
+	}
+
+	buf := make([]byte, 0, headerLen+len(body))
+	buf = append(buf, MAGIC, VERSION, p.Type)
+	buf = binary.BigEndian.AppendUint16(buf, uint16(len(body)))
+	buf = append(buf, body...)
+
 	_, err := w.Write(buf)
 	return err
 }
 
 func (p *Proto) Read(r io.Reader) error {
-	hdr, err := readFull(r, 3)
+	hdr, err := readFull(r, headerLen)
 	if err != nil {
 		return err
 	}
@@ -148,47 +159,43 @@ func (p *Proto) Read(r io.Reader) error {
 	p.Type = hdr[2]
 	p.Addr, p.TCPF = nil, nil
 
+	n := int(binary.BigEndian.Uint16(hdr[3:]))
+	if n > maxBodyLen {
+		return fmt.Errorf("protocol: body length %d exceeds max %d", n, maxBodyLen)
+	}
+	body, err := readFull(r, n)
+	if err != nil {
+		return err
+	}
+
 	switch p.Type {
 	case PPING, PPONG:
 		return nil
 
 	case PTCP, PUDP:
-		hl, err := readFull(r, 1)
-		if err != nil {
-			return err
+		if len(body) < 3 {
+			return errors.New("protocol: truncated address body")
 		}
-		n := int(hl[0])
-		if n > maxHostLen {
-			return fmt.Errorf("protocol: host length %d exceeds max %d", n, maxHostLen)
+		hl := int(body[0])
+		if hl > maxHostLen || 1+hl+2 != len(body) {
+			return fmt.Errorf("protocol: bad host length %d", hl)
 		}
-		body, err := readFull(r, n+2)
-		if err != nil {
-			return err
-		}
-		host := string(body[:n])
-		port := int(binary.BigEndian.Uint16(body[n:]))
+		host := string(body[1 : 1+hl])
+		port := int(binary.BigEndian.Uint16(body[1+hl:]))
 		p.Addr = &tnet.Addr{Host: host, Port: port}
 		return nil
 
 	case PTCPF:
-		cnt, err := readFull(r, 1)
-		if err != nil {
-			return err
+		if len(body) < 1 {
+			return errors.New("protocol: truncated tcpf body")
 		}
-		c := int(cnt[0])
-		if c > maxTCPFLen {
-			return fmt.Errorf("protocol: tcpf count %d exceeds max %d", c, maxTCPFLen)
-		}
-		if c == 0 {
-			return nil
-		}
-		raw, err := readFull(r, c*2)
-		if err != nil {
-			return err
+		c := int(body[0])
+		if c > maxTCPFCount || 1+c*2 != len(body) {
+			return fmt.Errorf("protocol: bad tcpf count %d", c)
 		}
 		p.TCPF = make([]conf.TCPF, c)
 		for i := range p.TCPF {
-			p.TCPF[i] = decodeTCPF(binary.BigEndian.Uint16(raw[i*2:]))
+			p.TCPF[i] = decodeTCPF(binary.BigEndian.Uint16(body[1+i*2:]))
 		}
 		return nil
 
