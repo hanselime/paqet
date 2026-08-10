@@ -73,6 +73,10 @@ func (s *Server) serveUDP(ctx context.Context, a *associate) {
 		if err != nil {
 			return
 		}
+		if n == len(buf) {
+			flog.Debugf("SOCKS5 UDP %s: datagram too large, at least %d bytes", cAddr, n)
+			continue
+		}
 		if !a.accept(cAddr) {
 			flog.Debugf("SOCKS5 UDP %s: unexpected source (want %s)", cAddr, a.cAddr.IP)
 			continue
