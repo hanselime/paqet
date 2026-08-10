@@ -22,8 +22,8 @@ type udpSess struct {
 func (f *Forward) serveUDP(ctx context.Context, conn *net.UDPConn) {
 	flog.Infof("UDP forwarder listening on %s -> %s", f.listenAddr, f.targetAddr)
 
+	buf := make([]byte, buffer.UDPSize+1)
 	for {
-		buf := make([]byte, buffer.UDPSize+1)
 		n, cAddr, err := conn.ReadFromUDPAddrPort(buf)
 		if err != nil {
 			select {
@@ -38,10 +38,11 @@ func (f *Forward) serveUDP(ctx context.Context, conn *net.UDPConn) {
 			flog.Debugf("UDP %s: datagram too large, at least %d bytes (limit %d)", cAddr, n, buffer.UDPSize)
 			continue
 		}
-
+		d := make([]byte, n)
+		copy(d, buf[:n])
 		s := f.openUDPSess(ctx, conn, cAddr)
 		select {
-		case s.ch <- buf[:n]:
+		case s.ch <- d:
 		default:
 		}
 	}
