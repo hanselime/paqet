@@ -18,10 +18,24 @@ import (
 	"paqet/internal/pkg/iterator"
 )
 
-type TCPF struct {
+type tcpF struct {
 	tcpF       iterator.Iterator[conf.TCPF]
 	clientTCPF map[uint64]*iterator.Iterator[conf.TCPF]
 	mu         sync.RWMutex
+}
+
+type encoder struct {
+	eth layers.Ethernet
+	ip4 layers.IPv4
+	ip6 layers.IPv6
+	tcp layers.TCP
+
+	opts [5]layers.TCPOption
+	ts   [8]byte
+	mss  [2]byte
+	ws   [1]byte
+
+	buf gopacket.SerializeBuffer
 }
 
 type SendHandle struct {
@@ -33,13 +47,9 @@ type SendHandle struct {
 	srcIPv6RHWA net.HardwareAddr
 	srcPort     uint16
 	time        uint32
-	tsCounter   uint32
-	tcpF        TCPF
-	ethPool     sync.Pool
-	ipv4Pool    sync.Pool
-	ipv6Pool    sync.Pool
-	tcpPool     sync.Pool
-	bufPool     sync.Pool
+	tsCounter   atomic.Uint32
+	tcpF        tcpF
+	ePool       sync.Pool
 }
 
 func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
@@ -47,7 +57,7 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}
-
+	// SetBufferSize(256*1024) + SetSnapLen(128)
 	// SetDirection is not fully supported on Windows Npcap, so skip it
 	if runtime.GOOS != "windows" {
 		if err := handle.SetDirection(pcap.DirectionOut); err != nil {
@@ -58,31 +68,16 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 	sh := &SendHandle{
 		handle:  handle,
 		srcPort: uint16(cfg.Port),
-		tcpF:    TCPF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
+		tcpF:    tcpF{tcpF: iterator.Iterator[conf.TCPF]{Items: cfg.TCP.LF}, clientTCPF: make(map[uint64]*iterator.Iterator[conf.TCPF])},
 		time:    uint32(time.Now().UnixNano() / int64(time.Millisecond)),
-		ethPool: sync.Pool{
+		ePool: sync.Pool{
 			New: func() any {
-				return &layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr}
-			},
-		},
-		ipv4Pool: sync.Pool{
-			New: func() any {
-				return &layers.IPv4{}
-			},
-		},
-		ipv6Pool: sync.Pool{
-			New: func() any {
-				return &layers.IPv6{}
-			},
-		},
-		tcpPool: sync.Pool{
-			New: func() any {
-				return &layers.TCP{}
-			},
-		},
-		bufPool: sync.Pool{
-			New: func() any {
-				return gopacket.NewSerializeBuffer()
+				return &encoder{
+					eth: layers.Ethernet{SrcMAC: cfg.Interface.HardwareAddr},
+					mss: [2]byte{0x05, 0xb4},
+					ws:  [1]byte{8},
+					buf: gopacket.NewSerializeBuffer(),
+				}
 			},
 		},
 	}
@@ -97,9 +92,8 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 	return sh, nil
 }
 
-func (h *SendHandle) buildIPv4Header(dstIP net.IP) *layers.IPv4 {
-	ip := h.ipv4Pool.Get().(*layers.IPv4)
-	*ip = layers.IPv4{
+func (h *SendHandle) buildIPv4Header(e *encoder, dstIP net.IP) {
+	e.ip4 = layers.IPv4{
 		Version:  4,
 		IHL:      5,
 		TOS:      184,
@@ -109,12 +103,10 @@ func (h *SendHandle) buildIPv4Header(dstIP net.IP) *layers.IPv4 {
 		SrcIP:    h.srcIPv4,
 		DstIP:    dstIP,
 	}
-	return ip
 }
 
-func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
-	ip := h.ipv6Pool.Get().(*layers.IPv6)
-	*ip = layers.IPv6{
+func (h *SendHandle) buildIPv6Header(e *encoder, dstIP net.IP) {
+	e.ip6 = layers.IPv6{
 		Version:      6,
 		TrafficClass: 184,
 		HopLimit:     64,
@@ -122,93 +114,85 @@ func (h *SendHandle) buildIPv6Header(dstIP net.IP) *layers.IPv6 {
 		SrcIP:        h.srcIPv6,
 		DstIP:        dstIP,
 	}
-	return ip
 }
 
-func (h *SendHandle) buildTCPHeader(dstPort uint16, f conf.TCPF) *layers.TCP {
-	tcp := h.tcpPool.Get().(*layers.TCP)
-	*tcp = layers.TCP{
+func (h *SendHandle) buildTCPHeader(e *encoder, dstPort uint16, f conf.TCPF) {
+	e.tcp = layers.TCP{
 		SrcPort: layers.TCPPort(h.srcPort),
 		DstPort: layers.TCPPort(dstPort),
 		FIN:     f.FIN, SYN: f.SYN, RST: f.RST, PSH: f.PSH, ACK: f.ACK, URG: f.URG, ECE: f.ECE, CWR: f.CWR, NS: f.NS,
 		Window: 65535,
 	}
 
-	counter := atomic.AddUint32(&h.tsCounter, 1)
+	counter := h.tsCounter.Add(1)
 	tsVal := h.time + (counter >> 3)
+	opts := e.opts[:0]
 	if f.SYN {
-		tcp.Options = []layers.TCPOption{
-			{OptionType: layers.TCPOptionKindMSS, OptionLength: 4, OptionData: []byte{0x05, 0xb4}},
-			{OptionType: layers.TCPOptionKindSACKPermitted, OptionLength: 2},
-			{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
-			{OptionType: layers.TCPOptionKindNop},
-			{OptionType: layers.TCPOptionKindWindowScale, OptionLength: 3, OptionData: []byte{8}},
-		}
-		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[0:4], tsVal)
-		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[4:8], 0)
-		tcp.Seq = 1 + (counter & 0x7)
-		tcp.Ack = 0
+		binary.BigEndian.PutUint32(e.ts[0:4], tsVal)
+		binary.BigEndian.PutUint32(e.ts[4:8], 0)
+		opts = append(opts,
+			layers.TCPOption{OptionType: layers.TCPOptionKindMSS, OptionLength: 4, OptionData: e.mss[:]},
+			layers.TCPOption{OptionType: layers.TCPOptionKindSACKPermitted, OptionLength: 2},
+			layers.TCPOption{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: e.ts[:]},
+			layers.TCPOption{OptionType: layers.TCPOptionKindNop},
+			layers.TCPOption{OptionType: layers.TCPOptionKindWindowScale, OptionLength: 3, OptionData: e.ws[:]},
+		)
+		e.tcp.Seq = 1 + (counter & 0x7)
+		e.tcp.Ack = 0
 		if f.ACK {
-			tcp.Ack = tcp.Seq + 1
+			e.tcp.Ack = e.tcp.Seq + 1
 		}
 	} else {
-		tcp.Options = []layers.TCPOption{
-			{OptionType: layers.TCPOptionKindNop},
-			{OptionType: layers.TCPOptionKindNop},
-			{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: make([]byte, 8)},
-		}
 		tsEcr := tsVal - (counter%200 + 50)
-		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[0:4], tsVal)
-		binary.BigEndian.PutUint32(tcp.Options[2].OptionData[4:8], tsEcr)
+		binary.BigEndian.PutUint32(e.ts[0:4], tsVal)
+		binary.BigEndian.PutUint32(e.ts[4:8], tsEcr)
+		opts = append(opts,
+			layers.TCPOption{OptionType: layers.TCPOptionKindNop},
+			layers.TCPOption{OptionType: layers.TCPOptionKindNop},
+			layers.TCPOption{OptionType: layers.TCPOptionKindTimestamps, OptionLength: 10, OptionData: e.ts[:]},
+		)
 		seq := h.time + (counter << 7)
-		tcp.Seq = seq
-		tcp.Ack = seq - (counter & 0x3FF) + 1400
+		e.tcp.Seq = seq
+		e.tcp.Ack = seq - (counter & 0x3FF) + 1400
 	}
-
-	return tcp
+	e.tcp.Options = opts
 }
 
 func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
-	buf := h.bufPool.Get().(gopacket.SerializeBuffer)
-	ethLayer := h.ethPool.Get().(*layers.Ethernet)
+	e := h.ePool.Get().(*encoder)
 	defer func() {
-		buf.Clear()
-		h.bufPool.Put(buf)
-		h.ethPool.Put(ethLayer)
+		e.buf.Clear()
+		h.ePool.Put(e)
 	}()
 
 	dstIP := addr.IP
 	dstPort := uint16(addr.Port)
 
-	f := h.getClientTCPF(dstIP, dstPort)
-	tcpLayer := h.buildTCPHeader(dstPort, f)
-	defer h.tcpPool.Put(tcpLayer)
+	h.buildTCPHeader(e, dstPort, h.getClientTCPF(dstIP, dstPort))
 
 	var ipLayer gopacket.SerializableLayer
 	if dstIP.To4() != nil {
-		ip := h.buildIPv4Header(dstIP)
-		defer h.ipv4Pool.Put(ip)
-		ipLayer = ip
-		tcpLayer.SetNetworkLayerForChecksum(ip)
-		ethLayer.DstMAC = h.srcIPv4RHWA
-		ethLayer.EthernetType = layers.EthernetTypeIPv4
+		h.buildIPv4Header(e, dstIP)
+		ipLayer = &e.ip4
+		e.tcp.SetNetworkLayerForChecksum(&e.ip4)
+		e.eth.DstMAC = h.srcIPv4RHWA
+		e.eth.EthernetType = layers.EthernetTypeIPv4
 	} else {
-		ip := h.buildIPv6Header(dstIP)
-		defer h.ipv6Pool.Put(ip)
-		ipLayer = ip
-		tcpLayer.SetNetworkLayerForChecksum(ip)
-		ethLayer.DstMAC = h.srcIPv6RHWA
-		ethLayer.EthernetType = layers.EthernetTypeIPv6
+		h.buildIPv6Header(e, dstIP)
+		ipLayer = &e.ip6
+		e.tcp.SetNetworkLayerForChecksum(&e.ip6)
+		e.eth.DstMAC = h.srcIPv6RHWA
+		e.eth.EthernetType = layers.EthernetTypeIPv6
 	}
 
 	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
-	if err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, tcpLayer, gopacket.Payload(payload)); err != nil {
+	if err := gopacket.SerializeLayers(e.buf, opts, &e.eth, ipLayer, &e.tcp, gopacket.Payload(payload)); err != nil {
 		return err
 	}
 
 	// pcap_sendpacket is not guaranteed thread-safe.
 	h.writeMu.Lock()
-	err := h.handle.WritePacketData(buf.Bytes())
+	err := h.handle.WritePacketData(e.buf.Bytes())
 	h.writeMu.Unlock()
 	return err
 }
