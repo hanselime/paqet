@@ -49,7 +49,7 @@ server:
 transport:
   protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
   conn: 1          # Number of connections (1-256, default: 1)
-  
+
 
   # KCP protocol settings
   kcp:
@@ -59,7 +59,7 @@ transport:
     # nodelay: 1              # 0=disable, 1=enable
                               # Enable for lower latency & aggressive retransmission
                               # Disable for TCP-like conservative behavior
-                  
+
     # interval: 10            # Internal update timer interval in milliseconds (10-5000ms)
                               # Lower values increase responsiveness but raise CPU usage
 
@@ -83,8 +83,8 @@ transport:
                               # Setting true reduces latency but increases bandwidth usage
 
     # mtu: 1350              # Maximum transmission unit (50-1500)
-    # rcvwnd: 512            # Receive window size (default for client)  
-    # sndwnd: 512            # Send window size (default for client)
+    # rcvwnd: 512            # Receive window size (default for client)
+    # sndwnd: 128            # Send window size (default for client)
 
     # Encryption settings
     # block: "aes"                    # Encryption: aes, aes-128, aes-128-gcm, aes-192, salsa20, blowfish, twofish, cast5, 3des, tea, xtea, xor, sm4, none, null.
@@ -93,7 +93,7 @@ transport:
     # Buffer settings (optional)
     # smuxbuf: 4194304       # 4MB SMUX buffer
     # streambuf: 2097152     # 2MB stream buffer
-    
+
     # smuxkalive: 2       # SMUX keepalive interval (seconds)
     # smuxktimeout: 8     # SMUX keepalive timeout (seconds)
 

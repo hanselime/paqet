@@ -1,4 +1,4 @@
-# paqet Server Configuration Example  
+# paqet Server Configuration Example
 # Role must be explicitly set
 role: "server"
 
@@ -39,7 +39,7 @@ network:
 transport:
   protocol: "kcp"  # Transport protocol (currently only "kcp" supported)
   conn: 1          # Number of connections (1-256, default: 1)
-  
+
 
   # KCP protocol settings
   kcp:
@@ -49,7 +49,7 @@ transport:
     # nodelay: 1              # 0=disable, 1=enable
                               # Enable for lower latency & aggressive retransmission
                               # Disable for TCP-like conservative behavior
-                  
+
     # interval: 10            # Internal update timer interval in milliseconds (10-5000ms)
                               # Lower values increase responsiveness but raise CPU usage
 
@@ -76,7 +76,7 @@ transport:
     # rcvwnd: 1024           # Receive window size (default for server)
     # sndwnd: 1024           # Send window size (default for server)
 
-    # Encryption settings  
+    # Encryption settings
     # block: "aes"                    # Encryption: aes, aes-128, aes-128-gcm, aes-192, salsa20, blowfish, twofish, cast5, 3des, tea, xtea, xor, sm4, none, null.
     key: "your-secret-key-here"       # CHANGE ME: Secret key (must match client)
 
@@ -89,16 +89,16 @@ transport:
 
 # Optional Forward Error Correction (FEC) - currently disabled
 # Use these only if you need FEC for very lossy networks:
-#   dshard: 10    # Data shards for FEC  
+#   dshard: 10    # Data shards for FEC
 #   pshard: 3     # Parity shards for FEC
 
 # Important: Server Firewall Configuration Required!
-# 
+#
 # Since paqet uses pcap to bypass standard firewalls, you MUST configure
 # iptables on the server to prevent kernel interference:
 #
 # sudo iptables -t raw -A PREROUTING -p tcp --dport 9999 -j NOTRACK
-# sudo iptables -t raw -A OUTPUT -p tcp --sport 9999 -j NOTRACK  
+# sudo iptables -t raw -A OUTPUT -p tcp --sport 9999 -j NOTRACK
 # sudo iptables -t mangle -A OUTPUT -p tcp --sport 9999 --tcp-flags RST RST -j DROP
 #
 # Replace 9999 with your actual listen port.

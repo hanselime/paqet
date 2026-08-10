@@ -56,7 +56,7 @@ func (k *KCP) setDefaults(role string) {
 		if role == "server" {
 			k.Sndwnd = 1024
 		} else {
-			k.Sndwnd = 512
+			k.Sndwnd = 128
 		}
 	}
 
