@@ -48,19 +48,9 @@ func New(cfg *conf.Network) (*PacketConn, error) {
 }
 
 func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
-	var timer *time.Timer
-	var deadline <-chan time.Time
-	if d, ok := c.readDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer = time.NewTimer(time.Until(d))
-		defer timer.Stop()
-		deadline = timer.C
-	}
-
 	for {
-		select {
-		case <-deadline:
+		if d, ok := c.readDeadline.Load().(time.Time); ok && !d.IsZero() && !time.Now().Before(d) {
 			return 0, nil, os.ErrDeadlineExceeded
-		default:
 		}
 
 		p, addr, err := c.recvHandle.Read()
@@ -76,18 +66,8 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 }
 
 func (c *PacketConn) WriteTo(data []byte, addr net.Addr) (n int, err error) {
-	var timer *time.Timer
-	var deadline <-chan time.Time
-	if d, ok := c.writeDeadline.Load().(time.Time); ok && !d.IsZero() {
-		timer = time.NewTimer(time.Until(d))
-		defer timer.Stop()
-		deadline = timer.C
-	}
-
-	select {
-	case <-deadline:
+	if d, ok := c.writeDeadline.Load().(time.Time); ok && !d.IsZero() && !time.Now().Before(d) {
 		return 0, os.ErrDeadlineExceeded
-	default:
 	}
 
 	daddr, ok := addr.(*net.UDPAddr)
