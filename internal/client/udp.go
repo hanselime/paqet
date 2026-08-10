@@ -12,10 +12,11 @@ import (
 func (c *Client) UDP(ctx context.Context, lAddr, tAddr string) (tnet.Strm, bool, uint64, error) {
 	key := hash.AddrPair(lAddr, tAddr)
 	c.udpPool.mu.RLock()
-	if strm, ok := c.udpPool.strms[key]; ok {
+	if u, ok := c.udpPool.strms[key]; ok {
+		c.udpPool.mark(u)
 		c.udpPool.mu.RUnlock()
-		flog.Debugf("reusing UDP stream %d for %s -> %s", strm.SID(), lAddr, tAddr)
-		return strm, false, key, nil
+		flog.Debugf("reusing UDP stream %d for %s -> %s", u.strm.SID(), lAddr, tAddr)
+		return u.strm, false, key, nil
 	}
 	c.udpPool.mu.RUnlock()
 
@@ -44,13 +45,14 @@ func (c *Client) UDP(ctx context.Context, lAddr, tAddr string) (tnet.Strm, bool,
 	stop()
 
 	c.udpPool.mu.Lock()
-	if sstrm, ok := c.udpPool.strms[key]; ok {
+	if u, ok := c.udpPool.strms[key]; ok {
+		c.udpPool.mark(u)
 		c.udpPool.mu.Unlock()
 		strm.Close()
-		flog.Debugf("discarding duplicate UDP stream %d, reusing %d", strm.SID(), sstrm.SID())
-		return sstrm, false, key, nil
+		flog.Debugf("discarding duplicate UDP stream %d, reusing %d", strm.SID(), u.strm.SID())
+		return u.strm, false, key, nil
 	}
-	c.udpPool.strms[key] = strm
+	c.udpPool.add(key, strm)
 	c.udpPool.mu.Unlock()
 
 	flog.Debugf("UDP stream %d created for %s -> %s", strm.SID(), lAddr, tAddr)
@@ -59,4 +61,8 @@ func (c *Client) UDP(ctx context.Context, lAddr, tAddr string) (tnet.Strm, bool,
 
 func (c *Client) CloseUDP(key uint64, strm tnet.Strm) error {
 	return c.udpPool.delete(key, strm)
+}
+
+func (c *Client) Touch(key uint64) {
+	c.udpPool.touch(key)
 }

@@ -5,7 +5,6 @@ import (
 	"net"
 	"net/netip"
 	"sync"
-	"time"
 
 	"paqet/internal/flog"
 	"paqet/internal/pkg/buffer"
@@ -81,7 +80,7 @@ func (f *Forward) udpToStrm(ctx context.Context, conn *net.UDPConn, cAddr netip.
 	flog.Infof("accepted UDP connection %d for %s -> %s", strm.SID(), cAddr, f.targetAddr)
 	go func() {
 		defer f.closeUDPSess(cAddr, sess)
-		f.strmToUDP(ctx, strm, conn, cAddr)
+		f.strmToUDP(ctx, strm, conn, cAddr, sess)
 	}()
 
 	for {
@@ -91,30 +90,28 @@ func (f *Forward) udpToStrm(ctx context.Context, conn *net.UDPConn, cAddr netip.
 		case <-sess.done:
 			return
 		case buf := <-sess.ch:
-			strm.SetWriteDeadline(time.Now().Add(8 * time.Second))
 			_, err = strm.Write(buf)
-			strm.SetWriteDeadline(time.Time{})
 			if err != nil {
 				flog.Errorf("failed to forward bytes from %s -> %s: %v", cAddr, f.targetAddr, err)
 				return
 			}
+			f.client.Touch(sess.key)
 		}
 	}
 }
 
-func (f *Forward) strmToUDP(ctx context.Context, strm tnet.Strm, conn *net.UDPConn, cAddr netip.AddrPort) {
+func (f *Forward) strmToUDP(ctx context.Context, strm tnet.Strm, conn *net.UDPConn, cAddr netip.AddrPort, sess *udpSess) {
 	stop := context.AfterFunc(ctx, func() { strm.Close() })
 	defer stop()
 
 	buf := make([]byte, buffer.UDPSize)
 	for {
-		strm.SetReadDeadline(time.Now().Add(8 * time.Second))
 		n, err := strm.Read(buf)
-		strm.SetReadDeadline(time.Time{})
 		if err != nil {
 			flog.Errorf("UDP stream %d read failed for %s -> %s: %v", strm.SID(), cAddr, f.targetAddr, err)
 			return
 		}
+		f.client.Touch(sess.key)
 		_, err = conn.WriteToUDPAddrPort(buf[:n], cAddr)
 		if err != nil {
 			flog.Errorf("UDP stream %d write failed for %s -> %s: %v", strm.SID(), cAddr, f.targetAddr, err)

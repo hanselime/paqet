@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"net"
-	"time"
 
 	"paqet/internal/flog"
 	"paqet/internal/pkg/buffer"
@@ -99,37 +98,35 @@ func (s *Server) handleUDPConn(ctx context.Context, a *associate, d *datagram) {
 		return
 	}
 
-	strm.SetWriteDeadline(time.Now().Add(8 * time.Second))
 	_, err = strm.Write(d.data)
-	strm.SetWriteDeadline(time.Time{})
 	if err != nil {
 		s.client.CloseUDP(k, strm)
 		return
 	}
+	s.client.Touch(k)
 
 	if new {
 		flog.Infof("SOCKS5 accepted UDP connection %s -> %s", a.cAddr, d.address())
 		hdr := (&datagram{atyp: d.atyp, addr: d.addr, port: d.port}).bytes()
 		go func() {
 			defer s.client.CloseUDP(k, strm)
-			s.handleUDPStrm(ctx, strm, a, hdr)
+			s.handleUDPStrm(ctx, strm, a, hdr, k)
 		}()
 	}
 }
 
-func (s *Server) handleUDPStrm(ctx context.Context, strm tnet.Strm, a *associate, hdr []byte) {
+func (s *Server) handleUDPStrm(ctx context.Context, strm tnet.Strm, a *associate, hdr []byte, k uint64) {
 	stop := context.AfterFunc(ctx, func() { strm.Close() })
 	defer stop()
 
 	buf := make([]byte, len(hdr)+buffer.UDPSize)
 	hlen := copy(buf, hdr)
 	for {
-		strm.SetReadDeadline(time.Now().Add(8 * time.Second))
 		n, err := strm.Read(buf[hlen:])
-		strm.SetReadDeadline(time.Time{})
 		if err != nil {
 			return
 		}
+		s.client.Touch(k)
 		if _, err := a.conn.WriteToUDP(buf[:hlen+n], a.cAddr); err != nil {
 			return
 		}

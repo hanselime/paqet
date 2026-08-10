@@ -7,7 +7,6 @@ import (
 	"paqet/internal/conf"
 	"paqet/internal/flog"
 	"paqet/internal/pkg/iterator"
-	"paqet/internal/tnet"
 )
 
 type Client struct {
@@ -21,7 +20,7 @@ func New(cfg *conf.Conf) (*Client, error) {
 	c := &Client{
 		cfg:     cfg,
 		iter:    &iterator.Iterator[*timedConn]{},
-		udpPool: &udpPool{strms: make(map[uint64]tnet.Strm)},
+		udpPool: newUDPPool(),
 	}
 	return c, nil
 }
@@ -37,6 +36,7 @@ func (c *Client) Start(ctx context.Context) error {
 		c.iter.Items = append(c.iter.Items, tc)
 	}
 
+	go c.udpPool.ticker(ctx)
 	go c.ticker(ctx)
 	go func() {
 		<-ctx.Done()
