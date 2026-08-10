@@ -60,7 +60,7 @@ func (f *Forward) openUDPSess(ctx context.Context, conn *net.UDPConn, cAddr neti
 	if sess, ok := f.udpPool[cAddr]; ok {
 		return sess
 	}
-	sess := &udpSess{ch: make(chan []byte, 128), done: make(chan struct{})}
+	sess := &udpSess{ch: make(chan []byte, 64), done: make(chan struct{})}
 	f.udpPool[cAddr] = sess
 	go f.udpToStrm(ctx, conn, cAddr, sess)
 	return sess
