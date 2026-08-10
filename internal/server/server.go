@@ -29,10 +29,7 @@ func (s *Server) Start(ctx context.Context) error {
 	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
 
 	go s.listen(ctx, listener)
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-	}()
+	context.AfterFunc(ctx, func() { listener.Close() })
 
 	return nil
 }

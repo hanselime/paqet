@@ -56,11 +56,10 @@ func (s *Server) handleAssociate(ctx context.Context, tConn net.Conn, req *reque
 		io.Copy(io.Discard, tConn)
 		conn.Close()
 	}()
-	go func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		conn.Close()
 		tConn.Close()
-	}()
+	})
 
 	s.serveUDP(ctx, a)
 	flog.Debugf("SOCKS5 UDP_ASSOCIATE control connection %s closed", tConn.RemoteAddr())

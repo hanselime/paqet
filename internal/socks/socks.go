@@ -31,10 +31,7 @@ func (s *Server) Start(ctx context.Context, cfg conf.SOCKS5) error {
 	flog.Infof("SOCKS5 server listening on %s", cfg.Listen.String())
 
 	go s.serveTCP(ctx, listener)
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-	}()
+	context.AfterFunc(ctx, func() { listener.Close() })
 
 	return nil
 }

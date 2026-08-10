@@ -35,15 +35,14 @@ func (c *Client) Start(ctx context.Context) error {
 		flog.Debugf("client connection %d created successfully", i+1)
 		c.iter.Items = append(c.iter.Items, tc)
 	}
-
-	go c.udpPool.ticker(ctx)
-	go c.ticker(ctx)
-	go func() {
-		<-ctx.Done()
+	context.AfterFunc(ctx, func() {
 		for _, tc := range c.iter.Items {
 			tc.close()
 		}
-	}()
+	})
+
+	go c.ticker(ctx)
+	go c.udpPool.ticker(ctx)
 
 	ipv4Addr := "<nil>"
 	ipv6Addr := "<nil>"

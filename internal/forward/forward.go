@@ -50,10 +50,7 @@ func (f *Forward) startTCP(ctx context.Context) error {
 	}
 
 	go f.serveTCP(ctx, listener)
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-	}()
+	context.AfterFunc(ctx, func() { listener.Close() })
 
 	return nil
 }
@@ -71,10 +68,7 @@ func (f *Forward) startUDP(ctx context.Context) error {
 	}
 
 	go f.serveUDP(ctx, conn)
-	go func() {
-		<-ctx.Done()
-		conn.Close()
-	}()
+	context.AfterFunc(ctx, func() { conn.Close() })
 
 	return nil
 }
