@@ -31,8 +31,8 @@ func newHandle(cfg *conf.Network, timeout time.Duration) (*pcap.Handle, error) {
 	if err = inactive.SetSnapLen(65536); err != nil {
 		return nil, fmt.Errorf("failed to set pcap snap length: %v", err)
 	}
-	if err = inactive.SetPromisc(true); err != nil {
-		return nil, fmt.Errorf("failed to enable promiscuous mode: %v", err)
+	if err = inactive.SetPromisc(false); err != nil {
+		return nil, fmt.Errorf("failed to set promiscuous mode: %v", err)
 	}
 	if err = inactive.SetTimeout(timeout); err != nil {
 		return nil, fmt.Errorf("failed to set pcap timeout: %v", err)
