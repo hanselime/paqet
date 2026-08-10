@@ -33,6 +33,7 @@ func aplConf(conn *kcp.UDPSession, cfg *conf.KCP) {
 	conn.SetMtu(cfg.MTU)
 	conn.SetWriteDelay(wDelay)
 	conn.SetACKNoDelay(ackNoDelay)
+	conn.SetStreamMode(true)
 	conn.SetDSCP(46)
 }
 
