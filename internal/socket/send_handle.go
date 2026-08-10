@@ -55,6 +55,10 @@ func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
 		}
 	}
 
+	if err := handle.SetBPFFilter("less 0"); err != nil {
+		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
+	}
+
 	sh := &SendHandle{
 		handle:  handle,
 		srcPort: uint16(cfg.Port),
