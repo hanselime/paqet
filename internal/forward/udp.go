@@ -24,7 +24,7 @@ func (f *Forward) serveUDP(ctx context.Context, conn *net.UDPConn) {
 	flog.Infof("UDP forwarder listening on %s -> %s", f.listenAddr, f.targetAddr)
 
 	for {
-		buf := make([]byte, buffer.UPool)
+		buf := make([]byte, buffer.UDPSize+1)
 		n, cAddr, err := conn.ReadFromUDPAddrPort(buf)
 		if err != nil {
 			select {
@@ -33,6 +33,11 @@ func (f *Forward) serveUDP(ctx context.Context, conn *net.UDPConn) {
 			default:
 				continue
 			}
+		}
+
+		if n > buffer.UDPSize {
+			flog.Debugf("UDP %s: datagram too large, at least %d bytes (limit %d)", cAddr, n, buffer.UDPSize)
+			continue
 		}
 
 		s := f.openUDPSess(ctx, conn, cAddr)
@@ -101,7 +106,7 @@ func (f *Forward) strmToUDP(ctx context.Context, strm tnet.Strm, conn *net.UDPCo
 	stop := context.AfterFunc(ctx, func() { strm.Close() })
 	defer stop()
 
-	buf := make([]byte, buffer.UPool)
+	buf := make([]byte, buffer.UDPSize)
 	for {
 		strm.SetReadDeadline(time.Now().Add(8 * time.Second))
 		n, err := strm.Read(buf)

@@ -41,5 +41,4 @@ var Cmd = &cobra.Command{
 
 func initialize(cfg *conf.Conf) {
 	flog.SetLevel(cfg.Log.Level)
-	buffer.Initialize(cfg.Transport.TCPBuf, cfg.Transport.UDPBuf)
 }

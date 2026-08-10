@@ -88,6 +88,11 @@ func (s *Server) serveUDP(ctx context.Context, a *associate) {
 }
 
 func (s *Server) handleUDPConn(ctx context.Context, a *associate, d *datagram) {
+	if len(d.data) > buffer.UDPSize {
+		flog.Debugf("SOCKS5 UDP %s -> %s: payload too large, %d bytes", a.cAddr, d.address(), len(d.data))
+		return
+	}
+
 	strm, new, k, err := s.client.UDP(ctx, a.cAddr.String(), d.address())
 	if err != nil {
 		flog.Errorf("SOCKS5 failed to establish UDP stream for %s -> %s: %v", a.cAddr, d.address(), err)
@@ -116,7 +121,7 @@ func (s *Server) handleUDPStrm(ctx context.Context, strm tnet.Strm, a *associate
 	stop := context.AfterFunc(ctx, func() { strm.Close() })
 	defer stop()
 
-	buf := make([]byte, buffer.UPool)
+	buf := make([]byte, len(hdr)+buffer.UDPSize)
 	hlen := copy(buf, hdr)
 	for {
 		strm.SetReadDeadline(time.Now().Add(8 * time.Second))
