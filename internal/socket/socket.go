@@ -65,7 +65,7 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 
 		p, addr, err := c.recvHandle.Read()
 		if err != nil {
-			if errors.Is(err, pcap.NextErrorTimeoutExpired) {
+			if errors.Is(err, pcap.NextErrorTimeoutExpired) || errors.Is(err, errNoPayload) {
 				continue
 			}
 			return 0, nil, err

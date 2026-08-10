@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/gopacket/gopacket"
@@ -13,8 +14,18 @@ import (
 	"paqet/internal/conf"
 )
 
+type decoder struct {
+	parser  *gopacket.DecodingLayerParser
+	eth     layers.Ethernet
+	ip4     layers.IPv4
+	ip6     layers.IPv6
+	tcp     layers.TCP
+	decoded []gopacket.LayerType
+}
+
 type RecvHandle struct {
 	handle *pcap.Handle
+	dPool  sync.Pool
 }
 
 func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
@@ -35,7 +46,15 @@ func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
 		return nil, fmt.Errorf("failed to set BPF filter: %w", err)
 	}
 
-	return &RecvHandle{handle: handle}, nil
+	h := &RecvHandle{handle: handle}
+	h.dPool.New = func() any {
+		d := &decoder{decoded: make([]gopacket.LayerType, 0, 4)}
+		d.parser = gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &d.eth, &d.ip4, &d.ip6, &d.tcp)
+		d.parser.IgnoreUnsupported = true
+		return d
+	}
+
+	return h, nil
 }
 
 func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
@@ -43,38 +62,33 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	p := gopacket.NewPacket(data, layers.LayerTypeEthernet, gopacket.NoCopy)
+
+	d := h.dPool.Get().(*decoder)
+	defer h.dPool.Put(d)
+
+	if err := d.parser.DecodeLayers(data, &d.decoded); err != nil {
+		return nil, nil, errNoPayload
+	}
 
 	addr := &net.UDPAddr{}
-
-	netLayer := p.NetworkLayer()
-	if netLayer == nil {
-		return nil, nil, nil
-	}
-	switch netLayer.LayerType() {
-	case layers.LayerTypeIPv4:
-		addr.IP = netLayer.(*layers.IPv4).SrcIP
-	case layers.LayerTypeIPv6:
-		addr.IP = netLayer.(*layers.IPv6).SrcIP
-	}
-
-	trLayer := p.TransportLayer()
-	if trLayer == nil {
-		return nil, nil, nil
-	}
-	switch trLayer.LayerType() {
-	case layers.LayerTypeTCP:
-		addr.Port = int(trLayer.(*layers.TCP).SrcPort)
-	case layers.LayerTypeUDP:
-		addr.Port = int(trLayer.(*layers.UDP).SrcPort)
+	var payload []byte
+	for _, t := range d.decoded {
+		switch t {
+		case layers.LayerTypeIPv4:
+			addr.IP = d.ip4.SrcIP
+		case layers.LayerTypeIPv6:
+			addr.IP = d.ip6.SrcIP
+		case layers.LayerTypeTCP:
+			addr.Port = int(d.tcp.SrcPort)
+			payload = d.tcp.Payload
+		}
 	}
 
-	appLayer := p.ApplicationLayer()
-	if appLayer == nil {
-		return nil, nil, nil
+	if addr.IP == nil || len(payload) == 0 {
+		return nil, nil, errNoPayload
 	}
 
-	return appLayer.Payload(), addr, nil
+	return payload, addr, nil
 }
 
 func (h *RecvHandle) Close() {
