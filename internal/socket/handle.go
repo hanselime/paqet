@@ -10,7 +10,7 @@ import (
 	"paqet/internal/conf"
 )
 
-func newHandle(cfg *conf.Network, timeout time.Duration) (*pcap.Handle, error) {
+func newHandle(cfg *conf.Network, sockbuf int, snapLen int, timeout time.Duration) (*pcap.Handle, error) {
 	// On Windows, use the GUID field to construct the NPF device name
 	// On other platforms, use the interface name directly
 	ifaceName := cfg.Interface.Name
@@ -24,11 +24,11 @@ func newHandle(cfg *conf.Network, timeout time.Duration) (*pcap.Handle, error) {
 	}
 	defer inactive.CleanUp()
 
-	if err = inactive.SetBufferSize(cfg.PCAP.Sockbuf); err != nil {
-		return nil, fmt.Errorf("failed to set pcap buffer size to %d: %v", cfg.PCAP.Sockbuf, err)
+	if err = inactive.SetBufferSize(sockbuf); err != nil {
+		return nil, fmt.Errorf("failed to set pcap buffer size to %d: %v", sockbuf, err)
 	}
 
-	if err = inactive.SetSnapLen(65536); err != nil {
+	if err = inactive.SetSnapLen(snapLen); err != nil {
 		return nil, fmt.Errorf("failed to set pcap snap length: %v", err)
 	}
 	if err = inactive.SetPromisc(false); err != nil {

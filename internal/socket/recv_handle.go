@@ -29,7 +29,7 @@ type RecvHandle struct {
 }
 
 func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
-	handle, err := newHandle(cfg, time.Millisecond)
+	handle, err := newHandle(cfg, cfg.PCAP.Sockbuf, 65536, time.Millisecond)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}

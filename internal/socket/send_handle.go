@@ -53,11 +53,11 @@ type SendHandle struct {
 }
 
 func NewSendHandle(cfg *conf.Network) (*SendHandle, error) {
-	handle, err := newHandle(cfg, pcap.BlockForever)
+	handle, err := newHandle(cfg, 256*1024, 128, pcap.BlockForever)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pcap handle: %w", err)
 	}
-	// SetBufferSize(256*1024) + SetSnapLen(128)
+
 	// SetDirection is not fully supported on Windows Npcap, so skip it
 	if runtime.GOOS != "windows" {
 		if err := handle.SetDirection(pcap.DirectionOut); err != nil {
