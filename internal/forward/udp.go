@@ -38,9 +38,12 @@ func (f *Forward) serveUDP(ctx context.Context, conn *net.UDPConn) {
 			flog.Debugf("UDP %s: datagram too large, at least %d bytes (limit %d)", cAddr, n, buffer.UDPSize)
 			continue
 		}
+		s := f.openUDPSess(ctx, conn, cAddr)
+		if len(s.ch) == cap(s.ch) {
+			continue
+		}
 		d := make([]byte, n)
 		copy(d, buf[:n])
-		s := f.openUDPSess(ctx, conn, cAddr)
 		select {
 		case s.ch <- d:
 		default:
