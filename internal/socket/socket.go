@@ -53,7 +53,7 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 			return 0, nil, os.ErrDeadlineExceeded
 		}
 
-		p, addr, err := c.recvHandle.Read()
+		n, addr, err := c.recvHandle.Read(data)
 		if err != nil {
 			if errors.Is(err, pcap.NextErrorTimeoutExpired) || errors.Is(err, errNoPayload) {
 				continue
@@ -61,7 +61,7 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 			return 0, nil, err
 		}
 
-		return copy(data, p), addr, nil
+		return n, addr, nil
 	}
 }
 

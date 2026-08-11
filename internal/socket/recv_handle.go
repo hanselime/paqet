@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"slices"
 	"sync"
 	"time"
 
@@ -26,6 +27,7 @@ type decoder struct {
 type RecvHandle struct {
 	handle *pcap.Handle
 	dPool  sync.Pool
+	mu     sync.Mutex
 }
 
 func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
@@ -57,17 +59,20 @@ func NewRecvHandle(cfg *conf.Network) (*RecvHandle, error) {
 	return h, nil
 }
 
-func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
-	data, _, err := h.handle.ReadPacketData()
+func (h *RecvHandle) Read(data []byte) (int, net.Addr, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	zdata, _, err := h.handle.ZeroCopyReadPacketData()
 	if err != nil {
-		return nil, nil, err
+		return 0, nil, err
 	}
 
 	d := h.dPool.Get().(*decoder)
 	defer h.dPool.Put(d)
 
-	if err := d.parser.DecodeLayers(data, &d.decoded); err != nil {
-		return nil, nil, errNoPayload
+	if err := d.parser.DecodeLayers(zdata, &d.decoded); err != nil {
+		return 0, nil, errNoPayload
 	}
 
 	addr := &net.UDPAddr{}
@@ -75,9 +80,9 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 	for _, t := range d.decoded {
 		switch t {
 		case layers.LayerTypeIPv4:
-			addr.IP = d.ip4.SrcIP
+			addr.IP = slices.Clone(d.ip4.SrcIP)
 		case layers.LayerTypeIPv6:
-			addr.IP = d.ip6.SrcIP
+			addr.IP = slices.Clone(d.ip6.SrcIP)
 		case layers.LayerTypeTCP:
 			addr.Port = int(d.tcp.SrcPort)
 			payload = d.tcp.Payload
@@ -85,10 +90,10 @@ func (h *RecvHandle) Read() ([]byte, net.Addr, error) {
 	}
 
 	if addr.IP == nil || len(payload) == 0 {
-		return nil, nil, errNoPayload
+		return 0, nil, errNoPayload
 	}
 
-	return payload, addr, nil
+	return copy(data, payload), addr, nil
 }
 
 func (h *RecvHandle) Close() {
