@@ -30,7 +30,6 @@ func New(client *client.Client, listenAddr, targetAddr string) (*Forward, error)
 }
 
 func (f *Forward) Start(ctx context.Context, protocol string) error {
-	flog.Debugf("starting %s forwarder: %s -> %s", protocol, f.listenAddr, f.targetAddr)
 	switch protocol {
 	case "tcp":
 		return f.startTCP(ctx)

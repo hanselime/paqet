@@ -26,7 +26,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("could not start KCP listener: %w", err)
 	}
 	s.listener = listener
-	flog.Infof("Server started - listening for packets on :%d", s.cfg.Listen.Addr.Port)
+	flog.Infof("server listening for packets on :%d", s.cfg.Listen.Addr.Port)
 
 	go s.listen(ctx, listener)
 	context.AfterFunc(ctx, func() { listener.Close() })

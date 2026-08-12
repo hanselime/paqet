@@ -33,11 +33,11 @@ func init() {
 
 var Cmd = &cobra.Command{
 	Use:   "dump",
-	Short: "A raw packet dumper that logs TCP payloads for a given port.",
+	Short: "A raw packet dumper that logs TCP payloads for a given port",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg, err := conf.LoadFromFile(confPath)
 		if err != nil {
-			log.Fatalf("Failed to load configuration: %v", err)
+			log.Fatalf("failed to parse configuration: %v", err)
 		}
 
 		if cfg.Role != "server" {
@@ -50,7 +50,7 @@ var Cmd = &cobra.Command{
 		netCfg := cfg.Network
 		packetConn, err := socket.New(&netCfg)
 		if err != nil {
-			log.Fatalf("Failed to create raw socket: %v", err)
+			log.Fatalf("failed to create raw socket: %v", err)
 		}
 		defer packetConn.Close()
 
@@ -72,7 +72,7 @@ var Cmd = &cobra.Command{
 						if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
 							continue
 						}
-						log.Printf("Failed to read from socket: %v", err)
+						log.Printf("failed to read from socket: %v", err)
 						continue
 					}
 					go handlePacket(srcAddr, cfg.Listen.Addr, payload[:n])
@@ -80,7 +80,7 @@ var Cmd = &cobra.Command{
 			}
 		}()
 		<-sigChan
-		log.Printf("Shutdown signal received, exiting.")
+		log.Printf("shutdown signal received, exiting")
 		cancel()
 	},
 }

@@ -65,7 +65,7 @@ func (c *Conf) validate() error {
 
 	allErrors = append(allErrors, c.Log.validate()...)
 	if c.Role == "client" && len(c.SOCKS5) == 0 && len(c.Forward) == 0 {
-		flog.Warnf("warning: client mode enabled but no SOCKS5 or forward configurations found")
+		flog.Warnf("client mode enabled but no SOCKS5 or forward configurations found")
 	}
 	for i := range c.SOCKS5 {
 		errs := c.SOCKS5[i].validate()

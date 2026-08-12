@@ -8,38 +8,28 @@ import (
 )
 
 func WErr(err error) error {
-	if minLevel == 0 {
-		return err
-	}
 	if err == nil {
-		return err
-	}
-
-	if errors.Is(err, io.EOF) {
-		// return NormalClosure
-		return nil
-	}
-	if errors.Is(err, net.ErrClosed) {
-		return nil
-	}
-	if errors.Is(err, io.ErrClosedPipe) || errors.Is(err, syscall.EPIPE) {
-		// return PipeError
 		return nil
 	}
 
-	if errors.Is(err, syscall.ECONNRESET) {
-		// return ConnectionReset
+	switch {
+	case errors.Is(err, io.EOF):
+		return nil
+	case errors.Is(err, net.ErrClosed):
+		return nil
+	case errors.Is(err, io.ErrClosedPipe), errors.Is(err, syscall.EPIPE):
+		return nil
+	case errors.Is(err, syscall.ECONNRESET):
 		return nil
 	}
 
-	if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-		// return NetworkTimeout
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
 		return nil
 	}
 
-	// Handle wrapped errors
 	var opErr *net.OpError
-	if errors.As(err, &opErr) {
+	if errors.As(err, &opErr) && opErr.Err != nil {
 		return WErr(opErr.Err)
 	}
 

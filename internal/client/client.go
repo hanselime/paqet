@@ -32,7 +32,6 @@ func (c *Client) Start(ctx context.Context) error {
 			flog.Errorf("failed to create connection %d: %v", i+1, err)
 			return err
 		}
-		flog.Debugf("client connection %d created successfully", i+1)
 		c.iter.Items = append(c.iter.Items, tc)
 	}
 	context.AfterFunc(ctx, func() {
@@ -52,6 +51,6 @@ func (c *Client) Start(ctx context.Context) error {
 	if c.cfg.Network.IPv6.Addr != nil {
 		ipv6Addr = c.cfg.Network.IPv6.Addr.IP.String()
 	}
-	flog.Infof("Client started: IPv4:%s IPv6:%s -> %s (%d connections)", ipv4Addr, ipv6Addr, c.cfg.Server.Addr, len(c.iter.Items))
+	flog.Infof("client IPv4:%s IPv6:%s -> %s (%d connections)", ipv4Addr, ipv6Addr, c.cfg.Server.Addr, len(c.iter.Items))
 	return nil
 }
