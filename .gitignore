@@ -47,3 +47,11 @@ client.yaml
 client.json
 logs/client.log
 .gitignore
+.linux/
+paqet_darwin_arm64
+main
+geosite.dat
+xray
+geoip.dat
+warp/
+.wg/
