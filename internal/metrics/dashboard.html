@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>paqet status</title>
+<style>
+:root{--bg:#0b0e14;--panel:#131824;--line:#232c40;--fg:#dbe2f1;--dim:#8b94a9;--grn:#34d399;--red:#f87171;--blu:#60a5fa;--cyn:#22d3ee}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 -apple-system,system-ui,sans-serif;padding:12px;max-width:1100px;margin:0 auto}
+.num,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:12px}
+h1{font-size:20px;letter-spacing:1px}
+.badge{background:#1e293b;border:1px solid var(--line);border-radius:4px;padding:1px 8px;font-size:12px;color:var(--cyn);text-transform:uppercase}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--red);flex:none}
+.dot.ok{background:var(--grn);box-shadow:0 0 6px var(--grn)}
+#uptime{margin-left:auto;color:var(--dim);font-size:13px}
+#err{display:none;width:100%;color:var(--red);font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.card .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+.card .v{font-size:20px;margin-top:2px}
+.card .s{font-size:11px;color:var(--dim)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:12px}
+.panel h2{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;font-weight:600}
+canvas#spark{width:100%;height:140px;display:block;background:#0a0d13;border:1px solid var(--line);border-radius:6px}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--dim);margin-top:6px}
+.sw{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:5px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}
+th{color:var(--dim);text-transform:uppercase;font-size:10px;letter-spacing:.5px}
+.ok-t{color:var(--grn)}.bad-t{color:var(--red)}
+.wrap{overflow-x:auto}
+#connTable td,#connTable th{text-align:left}
+#connTable td.n,#connTable th.n{text-align:right}
+.st-active{color:var(--grn)}.st-closed{color:var(--dim)}
+.empty{padding:14px;text-align:center;color:var(--dim);font-size:13px}
+footer{color:var(--dim);font-size:11px;text-align:center;padding:6px}
+@media(max-width:480px){body{padding:8px}.card .v{font-size:17px}th,td{padding:4px 6px}}
+</style>
+</head>
+<body>
+<header>
+<span class="dot" id="dot"></span>
+<h1>paqet</h1>
+<span class="badge mono" id="role">…</span>
+<span class="mono" id="uptime">uptime —</span>
+<span id="err" class="mono"></span>
+</header>
+
+<div class="grid">
+<div class="card"><div class="k">Throughput in</div><div class="v num" id="tIn">—</div><div class="s num" id="tInTot">—</div></div>
+<div class="card"><div class="k">Throughput out</div><div class="v num" id="tOut">—</div><div class="s num" id="tOutTot">—</div></div>
+<div class="card"><div class="k">Packets in</div><div class="v num" id="pIn">—</div><div class="s">total</div></div>
+<div class="card"><div class="k">Packets out</div><div class="v num" id="pOut">—</div><div class="s">total</div></div>
+<div class="card"><div class="k">Active conns</div><div class="v num" id="aConn">—</div><div class="s">connections</div></div>
+<div class="card"><div class="k">Active streams</div><div class="v num" id="aStr">—</div><div class="s">streams</div></div>
+</div>
+
+<div class="panel"><h2>Throughput (last 120s)</h2><canvas id="spark" width="600" height="140"></canvas>
+<div class="legend"><span><span class="sw" style="background:var(--grn)"></span>in <span class="mono" id="lgIn"></span></span><span><span class="sw" style="background:var(--blu)"></span>out <span class="mono" id="lgOut"></span></span></div>
+</div>
+
+<div class="panel"><h2>Success / failure</h2><div class="wrap"><table id="sf">
+<tr><th>Channel</th><th class="n">Success</th><th class="n">Failure</th></tr>
+</table></div></div>
+
+<div class="panel"><h2>Connections <span class="mono" id="connCount"></span></h2><div class="wrap">
+<table id="connTable"><thead><tr><th>id</th><th>remote</th><th>local</th><th>status</th><th class="n">uptime</th><th class="n">in</th><th class="n">out</th><th class="n">streams</th></tr></thead><tbody id="connBody"></tbody></table>
+<div class="empty" id="connEmpty">no connections</div>
+</div></div>
+
+<footer class="mono" id="ts"></footer>
+
+<script>
+"use strict";
+var histIn=[],histOut=[],MAX=60;
+var $=function(id){return document.getElementById(id);};
+function setT(id,t){$(id).textContent=t;}
+function fmtInt(n){n=+n||0;return n.toLocaleString("en-US");}
+function fmtBytes(n){n=+n||0;if(n<1024)return n+" B";var u=["KB","MB","GB","TB","PB"],i=-1;do{n/=1024;i++;}while(n>=1024&&i<u.length-1);return (n>=100?n.toFixed(0):n>=10?n.toFixed(1):n.toFixed(2))+" "+u[i];}
+function fmtRate(n){return fmtBytes(n)+"/s";}
+function fmtDur(s){s=Math.max(0,Math.floor(+s||0));if(s<60)return s+"s";var m=Math.floor(s/60);if(m<60)return m+"m "+(s%60)+"s";var h=Math.floor(m/60);if(h<48)return h+"h "+(m%60)+"m";return Math.floor(h/24)+"d "+(h%24)+"h";}
+function sfRow(name,ok,fail){
+var tr=document.createElement("tr"),a=document.createElement("td"),b=document.createElement("td"),c=document.createElement("td");
+a.textContent=name;b.textContent=fmtInt(ok);b.className="n num ok-t";c.textContent=fmtInt(fail);c.className="n num bad-t";
+tr.appendChild(a);tr.appendChild(b);tr.appendChild(c);return tr;
+}
+var sfBody=null;
+function renderSF(d){
+if(!sfBody){sfBody=document.createElement("tbody");$("sf").appendChild(sfBody);}
+while(sfBody.firstChild)sfBody.removeChild(sfBody.firstChild);
+var rows=[["total",d.success_total,d.failure_total],["tcp",d.success_tcp,d.failure_tcp],["udp",d.success_udp,d.failure_udp],["socks",d.success_socks,d.failure_socks],["fwd tcp",d.success_forward_tcp,d.failure_forward_tcp],["fwd udp",d.success_forward_udp,d.failure_forward_udp]];
+for(var i=0;i<rows.length;i++)sfBody.appendChild(sfRow(rows[i][0],rows[i][1],rows[i][2]));
+}
+function renderConns(list){
+var tb=$("connBody");while(tb.firstChild)tb.removeChild(tb.firstChild);
+list=list||[];
+setT("connCount",list.length?"("+list.length+")":"");
+$("connEmpty").style.display=list.length?"none":"block";
+var n=Math.min(list.length,100);
+for(var i=0;i<n;i++){var c=list[i],tr=document.createElement("tr");
+var cells=[c.id,""+c.remote_addr,""+c.local_addr,""+c.status,fmtDur(c.uptime_seconds),fmtBytes(c.bytes_in),fmtBytes(c.bytes_out),""+c.active_streams];
+for(var j=0;j<cells.length;j++){var td=document.createElement("td");td.textContent=cells[j];
+if(j===0||j>=4){td.className="n num";}else{td.className="mono";}
+if(j===3)td.className=c.status==="active"?"st-active":"st-closed";
+tr.appendChild(td);}
+if(c.started_at)tr.title="started "+c.started_at+" · last seen "+c.last_seen+(c.closed_at?" · closed "+c.closed_at:"");
+tb.appendChild(tr);}
+}
+function draw(){
+var cv=$("spark"),ctx=cv.getContext("2d"),W=cv.width,H=cv.height;
+ctx.clearRect(0,0,W,H);
+ctx.strokeStyle="#1c2438";ctx.lineWidth=1;
+for(var g=1;g<4;g++){var y=H*g/4;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+function line(a,color){
+if(!a.length)return;var mx=0,i;for(i=0;i<a.length;i++)if(a[i]>mx)mx=a[i];if(mx<=0)mx=1;
+ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.beginPath();
+for(i=0;i<a.length;i++){var x=a.length===1?W:W*i/(MAX-1),yy=H-4-(a[i]/mx)*(H-10);if(i===0)ctx.moveTo(x,yy);else ctx.lineTo(x,yy);}
+ctx.stroke();}
+line(histIn,"#34d399");line(histOut,"#60a5fa");
+}
+function fitCanvas(){var cv=$("spark"),r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;cv.width=Math.max(280,r.width*d);cv.height=140*d;draw();}
+window.addEventListener("resize",fitCanvas);
+function tick(d){
+setT("role",String(d.role||"unknown"));
+setT("uptime","uptime "+fmtDur(d.uptime_seconds));
+setT("tIn",fmtRate(d.bytes_in_per_sec));setT("tOut",fmtRate(d.bytes_out_per_sec));
+setT("tInTot","total "+fmtBytes(d.bytes_in));setT("tOutTot","total "+fmtBytes(d.bytes_out));
+setT("pIn",fmtInt(d.packets_in));setT("pOut",fmtInt(d.packets_out));
+setT("aConn",fmtInt(d.active_connections));setT("aStr",fmtInt(d.active_streams));
+setT("lgIn",fmtRate(d.bytes_in_per_sec));setT("lgOut",fmtRate(d.bytes_out_per_sec));
+setT("ts",String(d.timestamp||""));
+histIn.push(+d.bytes_in_per_sec||0);histOut.push(+d.bytes_out_per_sec||0);
+if(histIn.length>MAX)histIn.shift();if(histOut.length>MAX)histOut.shift();
+renderSF(d);renderConns(d.connections);draw();
+}
+function markOk(ok,msg){
+$("dot").className="dot"+(ok?" ok":"");
+var e=$("err");if(ok){e.style.display="none";e.textContent="";}else{e.style.display="block";e.textContent=msg;}
+}
+function poll(){
+fetch("metrics",{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error("http "+r.status);return r.json();}).then(function(d){markOk(true);tick(d);}).catch(function(e){markOk(false,"metrics unreachable ("+e.message+") — retrying…");});
+}
+fitCanvas();poll();setInterval(poll,2000);
+</script>
+</body>
+</html>

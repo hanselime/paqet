@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -347,7 +348,23 @@ func SnapshotNow() Snapshot {
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
+	limit := 100
+	if s := r.URL.Query().Get("limit"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil {
+			limit = n
+		}
+	}
+	if limit < 0 {
+		limit = 0
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	snap := SnapshotNow()
+	if len(snap.Connections) > limit {
+		snap.Connections = snap.Connections[:limit]
+	}
 	w.Header().Set("Content-Type", "application/json")
 	enc := json.NewEncoder(w)
-	_ = enc.Encode(SnapshotNow())
+	_ = enc.Encode(snap)
 }

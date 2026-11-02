@@ -15,6 +15,7 @@ func Start(ctx context.Context, cfg conf.Metrics) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/metrics", Handler)
+	mux.HandleFunc("/", dashboardHandler)
 
 	listener, err := net.Listen("tcp", cfg.Listen_)
 	if err != nil {
