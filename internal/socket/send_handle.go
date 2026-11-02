@@ -163,6 +163,16 @@ func (h *SendHandle) buildTCPHeader(e *encoder, dstPort uint16, f conf.TCPF) {
 }
 
 func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
+	return h.writeBase(payload, addr, h.getClientTCPF(addr.IP, uint16(addr.Port)))
+}
+
+// WriteWithFlags forces specific TCP flags for one packet (fake handshake).
+// Normal KCP traffic must keep using Write (configured iterator flags).
+func (h *SendHandle) WriteWithFlags(payload []byte, addr *net.UDPAddr, f conf.TCPF) error {
+	return h.writeBase(payload, addr, f)
+}
+
+func (h *SendHandle) writeBase(payload []byte, addr *net.UDPAddr, f conf.TCPF) error {
 	e := h.ePool.Get().(*encoder)
 	defer func() {
 		e.buf.Clear()
@@ -172,7 +182,7 @@ func (h *SendHandle) Write(payload []byte, addr *net.UDPAddr) error {
 	dstIP := addr.IP
 	dstPort := uint16(addr.Port)
 
-	h.buildTCPHeader(e, dstPort, h.getClientTCPF(dstIP, dstPort))
+	h.buildTCPHeader(e, dstPort, f)
 
 	var ipLayer gopacket.SerializableLayer
 	if dstIP.To4() != nil {
