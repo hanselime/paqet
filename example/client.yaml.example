@@ -40,6 +40,9 @@ network:
   tcp:
     local_flag: ["PA"]                      # Local TCP flags (Push+Ack default)
     remote_flag: ["PA"]                     # Remote TCP flags (Push+Ack default)
+    # handshake: true                       # Fake 3-way handshake (SYN-prime) for stateful
+                                            # NAT/firewalls. Default true; set false only to
+                                            # interoperate with peers that mishandle it.
 
   # PCAP settings (optional - will use defaults)
   # pcap:

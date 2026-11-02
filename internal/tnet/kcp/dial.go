@@ -22,16 +22,19 @@ func Dial(addr *net.UDPAddr, cfg *conf.KCP, netCfg conf.Network) (tnet.Conn, err
 		return nil, fmt.Errorf("kcp: failed to create packetconn: %w", err)
 	}
 
-	// SYN-prime the path before KCP data: stateful middleboxes drop
-	// non-SYN TCP, so the first packet must be SYN. Replies complete
-	// lazily inside ReadFrom.
-	if err := packetConn.TriggerHandshake(addr); err != nil {
-		packetConn.Close()
-		return nil, fmt.Errorf("kcp: failed to trigger handshake: %w", err)
+	// SYN-prime the path before KCP data, unless disabled in config.
+	// Stateful middleboxes drop non-SYN TCP, so the first packet must
+	// be SYN. Replies complete lazily inside ReadFrom. Default is
+	// enabled; pre-existing configs without the key are unaffected.
+	if netCfg.TCP.HandshakeEnabled() {
+		if err := packetConn.TriggerHandshake(addr); err != nil {
+			packetConn.Close()
+			return nil, fmt.Errorf("kcp: failed to trigger handshake: %w", err)
+		}
+		// Give the SYN a fraction of a second to complete round-trips
+		// before KCP starts blasting data.
+		time.Sleep(50 * time.Millisecond)
 	}
-	// Give the SYN a fraction of a second to complete round-trips
-	// before KCP starts blasting data.
-	time.Sleep(50 * time.Millisecond)
 
 	conn, err := kcp.NewConn(addr.String(), cfg.Block, cfg.Dshard, cfg.Pshard, packetConn)
 	if err != nil {

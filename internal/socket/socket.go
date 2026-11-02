@@ -63,23 +63,27 @@ func (c *PacketConn) ReadFrom(data []byte) (n int, addr net.Addr, err error) {
 			return 0, nil, err
 		}
 
-		// Intercept the fake 3-way handshake (see TriggerHandshake).
-		// These magic payloads prime stateful NAT/firewalls that drop
-		// non-SYN TCP, and must never reach KCP (it would fail to decrypt)
-		// nor count as traffic.
-		if udpAddr, ok := addr.(*net.UDPAddr); ok {
-			switch {
-			case n == 9 && bytes.Equal(data[:n], []byte("PAQET_SYN")):
-				// Server side: SYN received, reply SYN-ACK.
-				_ = c.sendHandle.WriteWithFlags([]byte("PAQET_SYNACK"), udpAddr, conf.TCPF{SYN: true, ACK: true})
-				continue
-			case n == 12 && bytes.Equal(data[:n], []byte("PAQET_SYNACK")):
-				// Client side: SYN-ACK received, reply ACK.
-				_ = c.sendHandle.WriteWithFlags([]byte("PAQET_ACK"), udpAddr, conf.TCPF{ACK: true})
-				continue
-			case n == 9 && bytes.Equal(data[:n], []byte("PAQET_ACK")):
-				// Server side: handshake complete.
-				continue
+		// Intercept the fake 3-way handshake (see TriggerHandshake),
+		// unless disabled in config. These magic payloads prime stateful
+		// NAT/firewalls that drop non-SYN TCP, and must never reach KCP
+		// (it would fail to decrypt) nor count as traffic. Peers without
+		// handshake support never emit them, so old counterparts are
+		// unaffected.
+		if c.cfg.TCP.HandshakeEnabled() {
+			if udpAddr, ok := addr.(*net.UDPAddr); ok {
+				switch {
+				case n == 9 && bytes.Equal(data[:n], []byte("PAQET_SYN")):
+					// Server side: SYN received, reply SYN-ACK.
+					_ = c.sendHandle.WriteWithFlags([]byte("PAQET_SYNACK"), udpAddr, conf.TCPF{SYN: true, ACK: true})
+					continue
+				case n == 12 && bytes.Equal(data[:n], []byte("PAQET_SYNACK")):
+					// Client side: SYN-ACK received, reply ACK.
+					_ = c.sendHandle.WriteWithFlags([]byte("PAQET_ACK"), udpAddr, conf.TCPF{ACK: true})
+					continue
+				case n == 9 && bytes.Equal(data[:n], []byte("PAQET_ACK")):
+					// Server side: handshake complete.
+					continue
+				}
 			}
 		}
 

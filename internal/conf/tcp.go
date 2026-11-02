@@ -7,8 +7,20 @@ import (
 type TCP struct {
 	LF_ []string `yaml:"local_flag"`
 	RF_ []string `yaml:"remote_flag"`
-	LF  []TCPF   `yaml:"-"`
-	RF  []TCPF   `yaml:"-"`
+	// Handshake enables the fake 3-way handshake (SYN-prime) that opens
+	// stateful NAT/firewalls before KCP data flows. Nil (key absent)
+	// means enabled, so pre-existing configs keep working unchanged.
+	// Set explicitly to false only for peers whose middlebox or old
+	// counterpart mishandles the magic packets.
+	Handshake *bool  `yaml:"handshake"`
+	LF        []TCPF `yaml:"-"`
+	RF        []TCPF `yaml:"-"`
+}
+
+// HandshakeEnabled reports whether the fake 3-way handshake should run.
+// Default is true; old configs without the key are unaffected.
+func (t *TCP) HandshakeEnabled() bool {
+	return t.Handshake == nil || *t.Handshake
 }
 
 type TCPF struct {
