@@ -42,8 +42,11 @@ build/
 dist/
 tmp/
 server.yaml
+server-*.yaml
 config.yaml
+config-*.yaml
 client.yaml
+client-*.yaml
 client.json
 logs/client.log
 .gitignore
