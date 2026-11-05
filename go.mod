@@ -6,7 +6,7 @@ require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/gopacket/gopacket v1.7.4
 	github.com/spf13/cobra v1.10.2
-	github.com/xtaci/kcp-go/v5 v5.7.1
+	github.com/xtaci/kcp-go/v5 v5.7.2
 	github.com/xtaci/smux v1.5.53
 	golang.org/x/crypto v0.58.0
 )
